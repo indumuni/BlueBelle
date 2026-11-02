@@ -1,0 +1,22 @@
+[project]
+name = "__NAME__"
+version = "0.1.0"
+description = "__NAME__ service (FastAPI)"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.162.0",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+__NAME__ = "__PKG__.main:run"
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+]

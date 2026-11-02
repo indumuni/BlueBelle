@@ -1,11 +1,8 @@
 [project]
 name = "svc-py"
 version = "0.1.0"
-description = "Sample FastAPI service (playground smoke test)"
+description = "svc-py service (FastAPI)"
 readme = "README.md"
-authors = [
-    { name = "Indumuni Abeyaratna", email = "indumuni@gmail.com" }
-]
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.162.0",

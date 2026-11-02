@@ -1,9 +1,10 @@
 # web-react
 
-Sample Vite + React + TypeScript app.
+Vite + React + TypeScript app, created from `templates/web`. Infra:
+`infra/projects/web-react` (S3 + CloudFront).
 
 ```sh
-pnpm dev     # http://localhost:5173
-pnpm test
-pnpm build
+pnpm --filter web-react dev     # http://localhost:5173
+pnpm --filter web-react test
+just infra-synth web-react      # builds the site first
 ```

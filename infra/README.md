@@ -10,9 +10,10 @@ infra/
 ├── shared/              resources deployed once per stage (VPC)  → bb-shared-<stage>-network
 ├── projects/
 │   ├── api-go/          apps/api-go on Lambda + HTTP API         → bb-api-go-<stage>
+│   ├── api-ts/          apps/api-ts on Lambda + HTTP API         → bb-api-ts-<stage>
 │   ├── svc-py/          apps/svc-py on Lambda + HTTP API         → bb-svc-py-<stage>
 │   └── web-react/       apps/web-react on S3 + CloudFront        → bb-web-react-<stage>
-└── scripts/new-project.mjs
+└── scripts/new-project.mjs   empty project scaffold (just new-infra)
 ```
 
 ## Everyday commands
@@ -21,7 +22,7 @@ infra/
 
 ```sh
 just cdk-bootstrap                  # once per AWS account/region
-just infra-list                     # shared, api-go, svc-py, web-react
+just infra-list                     # shared, api-go, api-ts, svc-py, web-react
 just infra-synth  web-react         # build templates → infra/projects/web-react/cdk.out
 just infra-diff   web-react
 just infra-deploy web-react         # create or update
@@ -42,14 +43,20 @@ this to build the site.
 | `StandardVpc` | 2-AZ VPC with public and private subnets, plus free S3/DynamoDB gateway endpoints. `natGateways` defaults to **0** (free); each NAT costs about $32/month |
 | `lookupSharedVpc(scope, stage)` | Finds the VPC deployed by `infra/shared`. Needs AWS credentials at synth |
 | `StaticSite` | Private S3 bucket, CloudFront with origin access control, upload of a `dist` directory, SPA fallback |
-| `HttpLambda` + `goWebCode()` / `pythonWebCode()` | An **unmodified** Go or Python HTTP server on Lambda (arm64) using the [Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter) layer, behind an HTTP API. Bundled locally with the mise toolchain, so no Docker is needed |
+| `HttpLambda` + `goWebCode()` / `pythonWebCode()` / `nodeWebCode()` | An **unmodified** Go, Python or Node HTTP server on Lambda (arm64) using the [Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter) layer, behind an HTTP API. `language: "go" \| "python" \| "node"` (default ports 8080, 8000, 3000). Bundled locally with the mise toolchain (Node: esbuild into a single `server.mjs`), so no Docker is needed |
 
 Add a new reusable pattern to `common/src`, export it from `index.ts`, and write a test in
 `common/test`.
 
 ## Adding infra for a project
 
-1. `just new-infra <name>`, using the same name as `apps/<name>`.
+`just new-go|new-py|new-web|new-ts <name>` already creates `infra/projects/<app>` next to
+the app, from `templates/<kind>/infra`. Run `just infra-diff <app>`, then
+`just infra-deploy <app>`.
+
+For a stack that doesn't belong to an app:
+
+1. `just new-infra <name>` (empty stack).
 2. Build the stack in `infra/projects/<name>/lib/stack.ts` from the common constructs.
 3. Add assertions in `test/stack.test.ts` and run `just test`.
 4. Run `just infra-diff <name>`, then `just infra-deploy <name>`.

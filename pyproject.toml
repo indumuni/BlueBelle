@@ -19,9 +19,11 @@ dev = [
 line-length = 100
 target-version = "py313"
 src = ["apps/*/src", "packages/py/*/src"]
+extend-exclude = ["templates"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "-q --import-mode=importlib"
+norecursedirs = ["templates", ".*", "node_modules"]

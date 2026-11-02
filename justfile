@@ -24,7 +24,7 @@ lint: lint-ts lint-py lint-go
 fmt: fmt-ts fmt-py fmt-go
 
 # Test everything
-test: test-ts test-py test-go
+test: test-ts test-py test-go test-scripts
 
 # Build everything
 build: build-ts build-go
@@ -42,6 +42,10 @@ test-ts:
 
 build-ts:
     pnpm -r --if-present build
+
+# Tests for repo scripts (scaffold generator)
+test-scripts:
+    node --test 'scripts/*.test.mjs'
 
 # ---- Python ----
 
@@ -77,39 +81,37 @@ build-go:
 
 # ---- Scaffolding ----
 
-# New Go app at apps/<name>-go
+# New Go service at apps/<name>-go + infra/projects/<name>-go (from templates/go)
 new-go name:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    dir="apps/{{name}}-go"
-    mkdir -p "$dir/cmd/{{name}}"
-    (cd "$dir" && go mod init "bluebelle/$dir")
-    printf '// Command %s is a BlueBelle playground app.\npackage main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("hello from %s")\n}\n' "{{name}}" "{{name}}" > "$dir/cmd/{{name}}/main.go"
-    go work use "./$dir"
-    echo "created $dir"
+    node scripts/new-app.mjs go {{name}}
 
-# New Python app at apps/<name>-py
+# New Python (FastAPI) service at apps/<name>-py + infra/projects/<name>-py (from templates/py)
 new-py name:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    dir="apps/{{name}}-py"
-    uv init --package --name "{{name}}-py" "$dir"
-    rm -f "$dir/.python-version"
-    sed -i.bak 's/requires-python = ">=3.[0-9]*"/requires-python = ">=3.13"/' "$dir/pyproject.toml" && rm "$dir/pyproject.toml.bak"
-    mkdir -p "$dir/tests"
-    uv sync --all-packages
-    echo "created $dir"
+    node scripts/new-app.mjs py {{name}}
 
-# New React app at apps/web-<name> (copied from apps/web-react)
+# New React app at apps/web-<name> + infra/projects/web-<name> (from templates/web)
 new-web name:
+    node scripts/new-app.mjs web {{name}}
+
+# New TypeScript (Hono) backend at apps/<name>-ts + infra/projects/<name>-ts (from templates/ts)
+new-ts name:
+    node scripts/new-app.mjs ts {{name}}
+
+# CI only: scaffold every kind from templates/ and check it (edits go.work and lockfiles)
+test-templates:
     #!/usr/bin/env bash
     set -euo pipefail
-    dir="apps/web-{{name}}"
-    test -d apps/web-react || { echo "apps/web-react template missing"; exit 1; }
-    rsync -a --exclude node_modules --exclude dist apps/web-react/ "$dir/"
-    sed -i.bak 's/"name": "web-react"/"name": "web-{{name}}"/' "$dir/package.json" && rm "$dir/package.json.bak"
-    pnpm install
-    echo "created $dir"
+    if [ "${CI:-}" != true ] && [ "${FORCE:-}" != 1 ]; then
+      echo "test-templates edits go.work and lockfiles; run in CI or set FORCE=1"; exit 1
+    fi
+    n=a-very-long-project-name-for-checks   # long on purpose: checks formatting after substitution
+    for k in go py web ts; do
+      node scripts/new-app.mjs "$k" "$n" || { echo "template $k failed to scaffold"; exit 1; }
+    done
+    just lint test build
+    for p in "$n-go" "$n-py" "web-$n" "$n-ts"; do
+      just infra-synth "$p" || { echo "template infra $p failed"; exit 1; }
+    done
 
 # ---- Infra (AWS CDK, one app per project) ----
 # <target> is "shared" or a project under infra/projects/.
