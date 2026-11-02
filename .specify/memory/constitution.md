@@ -1,6 +1,7 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 → 1.1.0 (MINOR: added Infrastructure section: per-project CDK apps, common constructs, shared stack)
+- Version change: 1.1.0 → 1.2.0 (MINOR: added Commit Authorship section)
+- Previous: 1.0.0 → 1.1.0 (MINOR: added Infrastructure section: per-project CDK apps, common constructs, shared stack)
 - Previous: (template) → 1.0.0
 - Added principles: I. Spec Before Substance, II. Right Language, Declared Scope,
   III. Contracts at the Seams, IV. Tests Prove It, V. One Command Surface,
@@ -112,6 +113,19 @@ library and small dependencies; YAGNI over speculative abstraction.
 5. `/speckit-implement`: implement in task order, keeping `just lint test` green.
 6. Merge the feature branch into `main` once `just lint test build` passes. CI must be green.
 
+## Commit Authorship
+
+- **Every commit is authored and committed by a real person**, using their own git
+  identity (`user.name` / `user.email`).
+- **AI tools are never credited as author, committer or co-author.** Commit messages
+  and PR descriptions MUST NOT contain AI or bot `Co-Authored-By` trailers or
+  "Generated with …" lines.
+- Using AI assistance does not change authorship. The person who commits owns the
+  change and is accountable for it.
+- Enforced by `.githooks/commit-msg` (enabled by `just setup`), by CI
+  (`.github/workflows/commits.yml`) and by `.claude/settings.json`, which turns off
+  Claude Code's attribution. All three use `scripts/check-attribution.sh`.
+
 ## Governance
 
 This constitution overrides ad-hoc conventions. Plans MUST include a
@@ -121,4 +135,4 @@ deviation in the plan's Complexity Tracking table. Amend via
 principles, MINOR for new principles or sections, PATCH for wording.
 Day-to-day agent guidance lives in `CLAUDE.md`.
 
-**Version**: 1.1.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-02
+**Version**: 1.2.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-02

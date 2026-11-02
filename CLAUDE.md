@@ -34,6 +34,8 @@ or prefix commands with `mise exec --`.
 - Python: ruff (line length 100), type hints, pytest
 - Go: gofmt/goimports, golangci-lint (`.golangci.yml`), table-driven tests
 - Run `just lint test` before declaring work done.
+- Commits and PRs are authored by the user only. Never add `Co-Authored-By`, "Generated with" or any
+  other AI attribution (constitution: Commit Authorship; enforced by `.githooks/commit-msg` and CI).
 - Never run `just cdk-bootstrap`, `just infra-deploy`, `just infra-destroy` (or raw `cdk deploy/destroy`)
   without explicit user approval.
 

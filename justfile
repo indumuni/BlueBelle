@@ -11,6 +11,7 @@ default:
 
 # Install toolchain and all dependencies
 setup:
+    git config core.hooksPath .githooks
     mise install
     pnpm install
     uv sync --all-packages

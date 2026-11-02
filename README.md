@@ -12,6 +12,10 @@ just setup                             # install all deps
 just lint test build                   # verify everything
 ```
 
+`just setup` also enables the repo's git hooks (`.githooks/`). The `commit-msg` hook enforces
+the constitution's **Commit Authorship** rule: commits come from real people, with no AI
+co-author or "Generated with" lines.
+
 Add `eval "$(mise activate zsh)"` to `~/.zshrc` so the pinned tools are on your PATH
 whenever you `cd` into the repo.
 

@@ -1,0 +1,24 @@
+name: Commits
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  authorship:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Check commit authorship
+        env:
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ -n "$BASE" ]; then range="$BASE..$HEAD"
+          elif [ -n "$BEFORE" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then range="$BEFORE..$HEAD"
+          else range="$HEAD"; fi
+          scripts/check-attribution.sh --range "$range"
