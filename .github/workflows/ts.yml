@@ -8,6 +8,7 @@ on:
         "apps/web-*/**",
         "apps/*-ts/**",
         "packages/ts/**",
+        "scripts/**",
         "package.json",
         "pnpm-lock.yaml",
         "pnpm-workspace.yaml",
@@ -23,6 +24,7 @@ on:
         "apps/web-*/**",
         "apps/*-ts/**",
         "packages/ts/**",
+        "scripts/**",
         "package.json",
         "pnpm-lock.yaml",
         "pnpm-workspace.yaml",
@@ -42,4 +44,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: just lint-ts
       - run: just test-ts
+      - run: just test-scripts
       - run: just build-ts

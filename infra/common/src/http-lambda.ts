@@ -12,6 +12,7 @@ import {
   Stack,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
+import { buildSync } from "esbuild";
 
 /**
  * AWS Lambda Web Adapter layer version (arm64). Lets an unmodified HTTP server
@@ -20,13 +21,30 @@ import { Construct } from "constructs";
 export const LWA_LAYER_VERSION = 30;
 const LWA_ACCOUNT = "753240598075";
 
-export type WebLanguage = "go" | "python";
+export type WebLanguage = "go" | "python" | "node";
+
+const RUNTIMES: Record<
+  WebLanguage,
+  { runtime: lambda.Runtime; handler: string; port: number }
+> = {
+  go: {
+    runtime: lambda.Runtime.PROVIDED_AL2023,
+    handler: "bootstrap",
+    port: 8080,
+  },
+  python: {
+    runtime: lambda.Runtime.PYTHON_3_13,
+    handler: "run.sh",
+    port: 8000,
+  },
+  node: { runtime: lambda.Runtime.NODEJS_24_X, handler: "run.sh", port: 3000 },
+};
 
 export interface HttpLambdaProps {
   language: WebLanguage;
-  /** Build with goWebCode() or pythonWebCode(). */
+  /** Build with goWebCode(), pythonWebCode() or nodeWebCode(). */
   code: lambda.Code;
-  /** Port the server listens on inside Lambda. Defaults: go 8080, python 8000. */
+  /** Port the server listens on inside Lambda. Defaults: go 8080, python 8000, node 3000. */
   port?: number;
   /** Path the adapter polls until the app is ready. Defaults to "/". */
   readinessPath?: string;
@@ -35,7 +53,7 @@ export interface HttpLambdaProps {
   environment?: Record<string, string>;
 }
 
-/** An HTTP server (Go or Python) on Lambda (arm64) behind an HTTP API. */
+/** An HTTP server (Go, Python or Node) on Lambda (arm64) behind an HTTP API. */
 export class HttpLambda extends Construct {
   readonly fn: lambda.Function;
   readonly api: apigw.HttpApi;
@@ -43,15 +61,14 @@ export class HttpLambda extends Construct {
   constructor(scope: Construct, id: string, props: HttpLambdaProps) {
     super(scope, id);
     const isGo = props.language === "go";
-    const port = props.port ?? (isGo ? 8080 : 8000);
+    const { runtime, handler, port: defaultPort } = RUNTIMES[props.language];
+    const port = props.port ?? defaultPort;
     const region = Stack.of(this).region;
 
     this.fn = new lambda.Function(this, "Function", {
-      runtime: isGo
-        ? lambda.Runtime.PROVIDED_AL2023
-        : lambda.Runtime.PYTHON_3_13,
+      runtime,
       architecture: lambda.Architecture.ARM_64,
-      handler: isGo ? "bootstrap" : "run.sh",
+      handler,
       code: props.code,
       memorySize: props.memorySize ?? 256,
       timeout: props.timeout ?? Duration.seconds(10),
@@ -65,7 +82,7 @@ export class HttpLambda extends Construct {
       environment: {
         PORT: String(port),
         AWS_LWA_READINESS_CHECK_PATH: props.readinessPath ?? "/",
-        // Python runs run.sh through the adapter's wrapper; Go's bootstrap is the server itself.
+        // Python and Node run run.sh through the adapter's wrapper; Go's bootstrap is the server itself.
         ...(isGo ? {} : { AWS_LAMBDA_EXEC_WRAPPER: "/opt/bootstrap" }),
         ...props.environment,
       },
@@ -169,6 +186,43 @@ export function pythonWebCode(
             script,
             `#!/bin/bash\nexec python -m uvicorn --host 127.0.0.1 --port "\${PORT:-8000}" ${asgiApp}\n`,
           );
+          chmodSync(script, 0o755);
+          return true;
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Bundles a Node HTTP server (e.g. Hono on @hono/node-server) into a single
+ * server.mjs with esbuild and adds a run.sh that starts it.
+ */
+export function nodeWebCode(
+  appDir: string,
+  entry = "src/server.ts",
+): lambda.Code {
+  return lambda.Code.fromAsset(appDir, {
+    exclude: ["node_modules", "dist", "*.test.ts"],
+    bundling: {
+      image: noDocker,
+      local: {
+        tryBundle(outputDir) {
+          // esbuild's JS API: the app folder has no esbuild binary of its own.
+          buildSync({
+            entryPoints: [join(appDir, entry)],
+            bundle: true,
+            platform: "node",
+            format: "esm",
+            target: "node24",
+            outfile: join(outputDir, "server.mjs"),
+            banner: {
+              js: 'import{createRequire}from"module";const require=createRequire(import.meta.url);',
+            },
+            logLevel: "warning",
+          });
+          const script = join(outputDir, "run.sh");
+          writeFileSync(script, "#!/bin/bash\nexec node server.mjs\n");
           chmodSync(script, 0o755);
           return true;
         },

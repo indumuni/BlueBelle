@@ -1,0 +1,32 @@
+name: Templates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "templates/**"
+      - "scripts/**"
+      - "infra/common/**"
+      - "justfile"
+      - ".mise.toml"
+      - ".github/workflows/templates.yml"
+  pull_request:
+    paths:
+      - "templates/**"
+      - "scripts/**"
+      - "infra/common/**"
+      - "justfile"
+      - ".mise.toml"
+      - ".github/workflows/templates.yml"
+
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --all-packages
+      - run: go work sync
+      # Scaffolds one app of every kind, then lint/test/build and synth (no AWS credentials)
+      - run: just test-templates

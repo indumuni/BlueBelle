@@ -9,6 +9,9 @@
     "build": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "esbuild": "0.28.2"
+  },
   "devDependencies": {
     "@types/node": "^24.19.2",
     "aws-cdk-lib": "2.275.0",

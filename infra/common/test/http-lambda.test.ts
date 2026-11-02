@@ -4,6 +4,7 @@ import {
   goWebCode,
   HttpLambda,
   LWA_LAYER_VERSION,
+  nodeWebCode,
   pythonWebCode,
 } from "../src/index.ts";
 import { testStack } from "./helpers.ts";
@@ -46,6 +47,26 @@ describe("HttpLambda", () => {
       Environment: {
         Variables: Match.objectLike({
           PORT: "8000",
+          AWS_LAMBDA_EXEC_WRAPPER: "/opt/bootstrap",
+        }),
+      },
+    });
+  });
+
+  test("node: run.sh (bundled server.mjs) through the adapter exec wrapper", () => {
+    const stack = testStack();
+    new HttpLambda(stack, "Api", {
+      language: "node",
+      code: nodeWebCode(import.meta.dirname),
+    });
+    Template.fromStack(stack).hasResourceProperties("AWS::Lambda::Function", {
+      Runtime: "nodejs24.x",
+      Handler: "run.sh",
+      Architectures: ["arm64"],
+      Layers: layer,
+      Environment: {
+        Variables: Match.objectLike({
+          PORT: "3000",
           AWS_LAMBDA_EXEC_WRAPPER: "/opt/bootstrap",
         }),
       },
