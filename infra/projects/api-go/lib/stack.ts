@@ -9,14 +9,14 @@ export interface ApiGoStackProps extends StackProps {
   stage: string;
 }
 
-/** apps/api-go on Lambda (via Lambda Web Adapter) behind an HTTP API. */
+/** apps/api-go (Go) on Lambda (via Lambda Web Adapter) behind an HTTP API. */
 export class ApiGoStack extends Stack {
   constructor(scope: Construct, id: string, props: ApiGoStackProps) {
     super(scope, id, props);
 
     new HttpLambda(this, "Api", {
       language: "go",
-      code: goWebCode(appDir, "./cmd/api-go"),
+      code: goWebCode(appDir, "./cmd/api"),
       readinessPath: "/health",
     });
   }

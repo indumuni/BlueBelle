@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createProjectApp } from "@bluebelle/infra-common";
 import { App } from "aws-cdk-lib";
-import { Template } from "aws-cdk-lib/assertions";
+import { Match, Template } from "aws-cdk-lib/assertions";
 import { test } from "vitest";
 import { WebReactStack } from "../lib/stack.ts";
 
@@ -16,4 +16,7 @@ test("serves the built site through CloudFront", () => {
   );
   t.resourceCountIs("AWS::CloudFront::Distribution", 1);
   t.resourceCountIs("Custom::CDKBucketDeployment", 1);
+  t.hasResourceProperties("AWS::S3::Bucket", {
+    Tags: Match.arrayWith([{ Key: "App", Value: "web-react" }]),
+  });
 });

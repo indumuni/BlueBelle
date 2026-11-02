@@ -1,4 +1,4 @@
-// Package apigo is a sample HTTP service used as a playground smoke test.
+// Package apigo is the api-go HTTP service.
 package apigo
 
 import (
