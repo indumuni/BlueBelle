@@ -39,7 +39,7 @@ Placeholders are replaced in both path segments and file contents.
 | Field | Validation |
 |---|---|
 | `kind` | One of the Kind ids, otherwise print usage and exit 2 |
-| `base` | `^[a-z][a-z0-9-]*$`, and must not end with `-`, otherwise print usage and exit 2 |
+| `base` | `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` (no leading, trailing or double dash; same rule as [contracts/scaffold-cli.md](./contracts/scaffold-cli.md)), otherwise print usage and exit 2 |
 
 ## Scaffold Request lifecycle
 
@@ -49,9 +49,9 @@ requested ──validate──▶ rejected (exit 2, nothing written)
     ├─ template missing ─▶ rejected (exit 1, nothing written)
     ├─ target exists ────▶ rejected (exit 1, nothing written)
     ▼
- writing ──▶ registering ──▶ created (exit 0)
-                  │
-                  └─ fails ─▶ partial (exit 1, prints created paths)
+ writing ──▶ registering ──▶ formatting ──▶ created (exit 0)
+                  │               │
+                  └───── fails ───┴─▶ partial (exit 1, prints created paths)
 ```
 
 ## Scaffolded App ↔ Infrastructure Project
