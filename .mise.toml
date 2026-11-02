@@ -1,0 +1,8 @@
+[tools]
+node = "24.22.2"
+pnpm = "12.16.1"
+python = "3.13.18"
+uv = "0.13.6"
+go = "1.27.3"
+just = "1.59.0"
+golangci-lint = "2.15.0"

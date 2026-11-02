@@ -1,0 +1,39 @@
+name: Go
+
+on:
+  push:
+    branches: [main]
+    paths:
+      [
+        "apps/*-go/**",
+        "packages/go/**",
+        "go.work",
+        "go.work.sum",
+        ".golangci.yml",
+        ".mise.toml",
+        "justfile",
+        ".github/workflows/go.yml",
+      ]
+  pull_request:
+    paths:
+      [
+        "apps/*-go/**",
+        "packages/go/**",
+        "go.work",
+        "go.work.sum",
+        ".golangci.yml",
+        ".mise.toml",
+        "justfile",
+        ".github/workflows/go.yml",
+      ]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+      - run: go work sync
+      - run: just lint-go
+      - run: just test-go
+      - run: just build-go

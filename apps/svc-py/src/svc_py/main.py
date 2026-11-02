@@ -1,0 +1,14 @@
+from fastapi import FastAPI
+
+app = FastAPI(title="svc-py")
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+def run() -> None:
+    import uvicorn
+
+    uvicorn.run(app, host="127.0.0.1", port=8000)

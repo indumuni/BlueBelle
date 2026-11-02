@@ -1,0 +1,15 @@
+{
+  "name": "bluebelle",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "biome check .",
+    "fmt": "biome check --write .",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.4",
+    "typescript": "^7.0.2"
+  }
+}

@@ -1,0 +1,45 @@
+name: TypeScript
+
+on:
+  push:
+    branches: [main]
+    paths:
+      [
+        "apps/web-*/**",
+        "apps/*-ts/**",
+        "packages/ts/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "biome.json",
+        "tsconfig.base.json",
+        ".mise.toml",
+        "justfile",
+        ".github/workflows/ts.yml",
+      ]
+  pull_request:
+    paths:
+      [
+        "apps/web-*/**",
+        "apps/*-ts/**",
+        "packages/ts/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "biome.json",
+        "tsconfig.base.json",
+        ".mise.toml",
+        "justfile",
+        ".github/workflows/ts.yml",
+      ]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+      - run: pnpm install --frozen-lockfile
+      - run: just lint-ts
+      - run: just test-ts
+      - run: just build-ts

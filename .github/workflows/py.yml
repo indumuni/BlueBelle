@@ -1,0 +1,38 @@
+name: Python
+
+on:
+  push:
+    branches: [main]
+    paths:
+      [
+        "apps/*-py/**",
+        "packages/py/**",
+        "pyproject.toml",
+        "uv.lock",
+        ".python-version",
+        ".mise.toml",
+        "justfile",
+        ".github/workflows/py.yml",
+      ]
+  pull_request:
+    paths:
+      [
+        "apps/*-py/**",
+        "packages/py/**",
+        "pyproject.toml",
+        "uv.lock",
+        ".python-version",
+        ".mise.toml",
+        "justfile",
+        ".github/workflows/py.yml",
+      ]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+      - run: uv sync --all-packages --locked
+      - run: just lint-py
+      - run: just test-py
