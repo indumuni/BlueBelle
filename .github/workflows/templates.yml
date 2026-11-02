@@ -9,6 +9,12 @@ on:
       - "infra/common/**"
       - "justfile"
       - ".mise.toml"
+      - "biome.json"
+      - "pyproject.toml"
+      - ".golangci.yml"
+      - "go.work"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
       - ".github/workflows/templates.yml"
   pull_request:
     paths:
@@ -17,6 +23,12 @@ on:
       - "infra/common/**"
       - "justfile"
       - ".mise.toml"
+      - "biome.json"
+      - "pyproject.toml"
+      - ".golangci.yml"
+      - "go.work"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
       - ".github/workflows/templates.yml"
 
 jobs:

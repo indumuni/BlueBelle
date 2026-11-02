@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  AssetHashType,
   aws_apigatewayv2 as apigw,
   CfnOutput,
   DockerImage,
@@ -123,10 +124,16 @@ const noDocker = DockerImage.fromRegistry(
   "public.ecr.aws/docker/library/busybox",
 );
 
+// Hash the bundled output, not the source folder: bundles also pull in code from
+// outside it (go.work, uv.lock, pnpm-lock.yaml, packages/), and a source hash
+// would let a dependency-only change deploy a stale cached asset.
+const outputHash = { assetHashType: AssetHashType.OUTPUT } as const;
+
 /** Builds a Go main package as a linux/arm64 `bootstrap` binary. */
 export function goWebCode(moduleDir: string, mainPkg: string): lambda.Code {
   return lambda.Code.fromAsset(moduleDir, {
     exclude: ["bin", "*_test.go"],
+    ...outputHash,
     bundling: {
       image: noDocker,
       local: {
@@ -161,6 +168,7 @@ export function pythonWebCode(
 ): lambda.Code {
   return lambda.Code.fromAsset(projectDir, {
     exclude: [".venv", "__pycache__", "tests", ".pytest_cache"],
+    ...outputHash,
     bundling: {
       image: noDocker,
       local: {
@@ -204,6 +212,7 @@ export function nodeWebCode(
 ): lambda.Code {
   return lambda.Code.fromAsset(appDir, {
     exclude: ["node_modules", "dist", "*.test.ts"],
+    ...outputHash,
     bundling: {
       image: noDocker,
       local: {
@@ -217,7 +226,9 @@ export function nodeWebCode(
             target: "node24",
             outfile: join(outputDir, "server.mjs"),
             banner: {
-              js: 'import{createRequire}from"module";const require=createRequire(import.meta.url);',
+              // Gives bundled CommonJS deps a `require` without declaring any
+              // top-level name that a bundled module could also declare.
+              js: 'import{createRequire as __bbCreateRequire}from"node:module";globalThis.require??=__bbCreateRequire(import.meta.url);',
             },
             logLevel: "warning",
           });

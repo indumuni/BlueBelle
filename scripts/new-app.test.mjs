@@ -10,21 +10,35 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { placeholders } from "./new-app.mjs";
+import { clashingKinds, placeholders } from "./new-app.mjs";
 
 const script = join(import.meta.dirname, "new-app.mjs");
 const TOKENS = "name=__NAME__ base=__BASE__ pkg=__PKG__ class=__PASCAL__Stack";
+// web and ts have no __PKG__, so their fake templates don't use it.
+const TOKENS_NO_PKG = "name=__NAME__ base=__BASE__ class=__PASCAL__Stack";
+const HAS_PKG = new Set(["go", "py"]);
 
 /** Temp repo root with fake token-bearing templates for every kind. */
 function fakeRoot() {
   const root = mkdtempSync(join(tmpdir(), "bb-new-app-"));
   for (const kind of ["go", "py", "web", "ts"]) {
+    const pkg = HAS_PKG.has(kind);
     for (const part of ["app", "infra"]) {
-      const dir = join(root, "templates", kind, part, "src", "__PKG__");
+      const dir = join(
+        root,
+        "templates",
+        kind,
+        part,
+        "src",
+        pkg ? "__PKG__" : "__NAME__",
+      );
       mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, "__BASE__.txt"), `${part}: ${TOKENS}\n`);
+      writeFileSync(
+        join(dir, "__BASE__.txt"),
+        `${part}: ${pkg ? TOKENS : TOKENS_NO_PKG}\n`,
+      );
       writeFileSync(
         join(root, "templates", kind, part, "bin.dat"),
         Buffer.from([0, 95, 95, 78]),
@@ -146,6 +160,7 @@ test("identifier placeholders per kind", () => {
   assert.equal(placeholders("go", "my-idea").__PKG__, "myideago");
   assert.equal(placeholders("py", "my-idea").__PKG__, "my_idea_py");
   assert.equal(placeholders("web", "my-idea").__NAME__, "web-my-idea");
+  assert.equal(placeholders("web", "my-idea").__PKG__, undefined);
   assert.equal(placeholders("web", "my-idea").__PASCAL__, "WebMyIdea");
   assert.equal(placeholders("ts", "my-idea").__PASCAL__, "MyIdeaTs");
 });
@@ -165,5 +180,52 @@ test("long names are accepted and fully substituted", () => {
   assert.match(
     readFileSync(file, "utf8"),
     /class=AVeryLongProjectNameForChecksPyStack/,
+  );
+});
+
+test("names that would match another kind's folder pattern exit 2", () => {
+  const root = fakeRoot();
+  for (const [kind, name, other] of [
+    ["web", "my-py", "py"],
+    ["web", "x-go", "go"],
+    ["go", "web-x", "web"],
+    ["ts", "web-x", "web"],
+  ]) {
+    const res = run(root, kind, name);
+    assert.equal(res.status, 2, `${kind} ${name}`);
+    assert.match(res.stderr, new RegExp(`match the ${other} naming rule`));
+  }
+  assert.equal(existsSync(join(root, "apps")), false);
+  assert.deepEqual(clashingKinds("web", "react"), []);
+  assert.deepEqual(clashingKinds("go", "api"), []);
+  // Only the kind's own suffix matters: x-ts-py is a plain Python app name.
+  assert.deepEqual(clashingKinds("py", "x-ts"), []);
+});
+
+test("a template using __PKG__ for a kind without it: exit 1, nothing written", () => {
+  const root = fakeRoot();
+  writeFileSync(
+    join(root, "templates", "ts", "infra", "z.txt"),
+    "pkg=__PKG__\n",
+  );
+  const res = run(root, "ts", "idea");
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /templates\/ts\/infra\/z\.txt uses __PKG__/);
+  assert.equal(existsSync(join(root, "apps")), false);
+  assert.equal(existsSync(join(root, "infra")), false);
+});
+
+test("a failed registration step prints the exact undo commands", () => {
+  const root = fakeRoot();
+  // PATH holds only node, so `go work use` can't run.
+  const res = spawnSync(process.execPath, [script, "go", "idea"], {
+    env: { BB_ROOT: root, PATH: dirname(process.execPath) },
+    encoding: "utf8",
+  });
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /failed: go work use \.\/apps\/idea-go/);
+  assert.match(
+    res.stderr,
+    /rm -rf apps\/idea-go infra\/projects\/idea-go && go work edit -dropuse \.\/apps\/idea-go && pnpm install/,
   );
 });
