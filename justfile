@@ -2,6 +2,10 @@
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
+export AWS_PROFILE := env("AWS_PROFILE", "default")
+
+cdk := justfile_directory() / "node_modules/.bin/cdk"
+
 default:
     @just --list
 
@@ -105,3 +109,36 @@ new-web name:
     sed -i.bak 's/"name": "web-react"/"name": "web-{{name}}"/' "$dir/package.json" && rm "$dir/package.json.bak"
     pnpm install
     echo "created $dir"
+
+# ---- Infra (AWS CDK, one app per project) ----
+# <target> is "shared" or a project under infra/projects/.
+
+# One-time per account/region: create the CDKToolkit stack
+cdk-bootstrap:
+    cd infra/shared && {{cdk}} bootstrap
+
+# List infra targets
+infra-list:
+    @echo shared; ls infra/projects
+
+# Scaffold infra/projects/<name> (an empty, independently deployable CDK app)
+new-infra name:
+    node infra/scripts/new-project.mjs {{name}}
+    pnpm install
+
+[private]
+infra-cdk target stage +args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "{{target}}" = shared ]; then dir=infra/shared; else dir="infra/projects/{{target}}"; fi
+    [ -f "$dir/cdk.json" ] || { echo "no infra for '{{target}}' (see: just infra-list)"; exit 1; }
+    pnpm --dir "$dir" run --if-present prepare-app
+    cd "$dir" && {{cdk}} {{args}} -c stage={{stage}}
+
+infra-synth target stage="dev": (infra-cdk target stage "synth" "--quiet")
+
+infra-diff target stage="dev": (infra-cdk target stage "diff")
+
+infra-deploy target stage="dev": (infra-cdk target stage "deploy" "--all")
+
+infra-destroy target stage="dev": (infra-cdk target stage "destroy" "--all")

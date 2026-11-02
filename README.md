@@ -24,6 +24,9 @@ apps/
   web-react/     sample Vite + React app     pnpm --filter web-react dev
 packages/{go,py,ts}/   shared libraries
 contracts/             OpenAPI / Protobuf for cross-language interfaces
+infra/projects/<name>/ one AWS CDK app per project (deploy/destroy independently)
+infra/common/          reusable CDK constructs: VPC, static site, HTTP Lambda
+infra/shared/          resources deployed once per stage (VPC)
 specs/                 Spec Kit feature specs
 .specify/              Spec Kit constitution, templates, scripts
 ```
@@ -58,3 +61,6 @@ The project principles are in [`.specify/memory/constitution.md`](.specify/memor
 | `just test` | Run all tests |
 | `just build` | Build Go and TS/React apps |
 | `just lint-go`, `just test-py`, … | Per-language variants |
+| `just infra-deploy <project> [stage]` | Deploy one project's AWS infra; see [`infra/README.md`](infra/README.md) |
+| `just infra-destroy <project> [stage]` | Tear down one project's AWS infra |
+| `just new-infra <name>` | Scaffold infra for a project |

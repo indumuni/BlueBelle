@@ -1,6 +1,7 @@
 <!--
 Sync Impact Report
-- Version change: (template) → 1.0.0
+- Version change: 1.0.0 → 1.1.0 (MINOR: added Infrastructure section: per-project CDK apps, common constructs, shared stack)
+- Previous: (template) → 1.0.0
 - Added principles: I. Spec Before Substance, II. Right Language, Declared Scope,
   III. Contracts at the Seams, IV. Tests Prove It, V. One Command Surface,
   VI. Disposable by Design
@@ -71,12 +72,36 @@ library and small dependencies; YAGNI over speculative abstraction.
 | `apps/<name>-ts` | Node/TS apps | pnpm workspace, biome, Vitest |
 | `packages/{go,py,ts}/<name>` | Shared libraries | same as language above |
 | `contracts/` | OpenAPI / Protobuf definitions | — |
+| `infra/projects/<name>` | One CDK app per project | pnpm, Vitest, `just infra-*` |
+| `infra/common` | Shared CDK constructs (templates) | pnpm, Vitest |
+| `infra/shared` | Resources deployed once per stage (VPC) | `just infra-* shared` |
 | `specs/` | Spec Kit feature specs | `/speckit-*` skills |
 
 - Scaffold with `just new-go <name>`, `just new-py <name>`, `just new-web <name>`.
 - Go module paths are `bluebelle/<path>`.
 - Python requires 3.13+, TypeScript runs in `strict` mode, and Go uses the version in `.mise.toml`.
 - Secrets never go in the repo; use `.env` (gitignored) with a committed `.env.example`.
+
+## Infrastructure
+
+- **AWS CDK in TypeScript is the only IaC tool.**
+- **One CDK app per project.** `infra/projects/<name>` is named after `apps/<name>`. Each
+  project is created, updated and destroyed independently
+  (`just infra-deploy|infra-destroy <name> [stage]`). Stacks are named
+  `bb-<project>-<stage>[-<part>]`.
+- **Common templates** (VPC, static site, HTTP Lambda, tags, naming) live in
+  `infra/common` (`@bluebelle/infra-common`). Projects compose these instead of
+  copying CDK code. New reusable patterns go there, with tests.
+- **Resources deployed once** (for example the per-stage VPC) live in `infra/shared`.
+- **Projects MUST NOT depend on another project's stacks.** They may depend on
+  `shared` only through lookups or SSM parameters under `/bluebelle/<stage>/…`,
+  never through CloudFormation exports. Deploy `shared` first and destroy it last.
+- Every resource is tagged `Project=BlueBelle`, `App=<project>` and `Stage=<stage>`.
+  The stage is selected with `-c stage=<name>` and defaults to `dev`.
+- Plans list the infrastructure a feature needs and its expected monthly cost.
+  Prefer serverless and pay-per-use options. Every stack MUST be destroyable.
+- Deploys run locally from the developer's AWS profile. CI only builds, tests
+  and synthesizes; no AWS credentials are stored in GitHub.
 
 ## Development Workflow
 
@@ -96,4 +121,4 @@ deviation in the plan's Complexity Tracking table. Amend via
 principles, MINOR for new principles or sections, PATCH for wording.
 Day-to-day agent guidance lives in `CLAUDE.md`.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-02
+**Version**: 1.1.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-02

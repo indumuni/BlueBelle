@@ -1,0 +1,32 @@
+name: Infra
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - "apps/**"
+      - "pnpm-lock.yaml"
+      - ".mise.toml"
+      - "justfile"
+      - ".github/workflows/infra.yml"
+  pull_request:
+    paths:
+      - "infra/**"
+      - "apps/**"
+      - "pnpm-lock.yaml"
+      - ".mise.toml"
+      - "justfile"
+      - ".github/workflows/infra.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v3
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r --filter "./infra/**" build
+      - run: pnpm -r --filter "./infra/**" test
+      # No AWS credentials in CI: env-agnostic synth of every infra app
+      - run: for t in $(just infra-list); do just infra-synth "$t"; done

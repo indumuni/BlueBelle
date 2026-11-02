@@ -9,6 +9,9 @@ development with GitHub Spec Kit. The rules live in
 - `just lint` / `just test` / `just build`: run across all languages
 - `just lint-go|lint-py|lint-ts`, `just test-go|test-py|test-ts`: per language
 - `just fmt`: auto-format everything
+- `just infra-list`, `just infra-synth|infra-diff|infra-deploy|infra-destroy <target> [stage]`: AWS CDK
+  per project (`<target>` is `shared` or a name under `infra/projects/`)
+- `just new-infra <name>`: scaffold `infra/projects/<name>`
 - `just new-go <name>` / `just new-py <name>` / `just new-web <name>`: scaffold an app
 
 Tools are pinned in `.mise.toml`. If a tool isn't found, run `eval "$(mise env -s bash)"`
@@ -20,6 +23,10 @@ or prefix commands with `mise exec --`.
 - `apps/web-<name>`: Vite + React + TS, Vitest + Testing Library
 - `packages/{go,py,ts}/`: shared libraries. Apps never import from other apps.
 - `contracts/`: OpenAPI/Protobuf for anything crossing a language boundary
+- `infra/projects/<name>`: one independent CDK app per app (same name as `apps/<name>`)
+- `infra/common`: reusable constructs (`StandardVpc`, `StaticSite`, `HttpLambda`, `createProjectApp`)
+- `infra/shared`: deploy-once resources (per-stage VPC). Projects never reference each other's stacks.
+  See `infra/README.md`.
 - `specs/NNN-feature/`: Spec Kit specs, plans and tasks
 
 ## Conventions
@@ -27,6 +34,8 @@ or prefix commands with `mise exec --`.
 - Python: ruff (line length 100), type hints, pytest
 - Go: gofmt/goimports, golangci-lint (`.golangci.yml`), table-driven tests
 - Run `just lint test` before declaring work done.
+- Never run `just cdk-bootstrap`, `just infra-deploy`, `just infra-destroy` (or raw `cdk deploy/destroy`)
+  without explicit user approval.
 
 ## Spec Kit flow
 `/speckit-specify` → `/speckit-clarify` → `/speckit-plan` → `/speckit-tasks` →

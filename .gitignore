@@ -20,7 +20,7 @@ __pycache__/
 .mypy_cache/
 
 # Go
-bin/
+/apps/*-go/bin/
 *.test
 *.out
 
@@ -28,3 +28,8 @@ bin/
 .env
 .env.*
 !.env.example
+
+# Infra
+cdk.out/
+# CDK lookup cache; contains the AWS account id (public repo), so kept local
+cdk.context.json
