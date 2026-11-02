@@ -1,6 +1,8 @@
 <!--
 Sync Impact Report
-- Version change: 1.1.0 → 1.2.0 (MINOR: added Commit Authorship section)
+- Version change: 1.2.0 → 1.3.0 (MINOR: templates/ added to Monorepo Layout; scaffolds create
+  app + infra from templates and include the TS backend; spec 002-app-templates)
+- Previous: 1.1.0 → 1.2.0 (MINOR: added Commit Authorship section)
 - Previous: 1.0.0 → 1.1.0 (MINOR: added Infrastructure section: per-project CDK apps, common constructs, shared stack)
 - Previous: (template) → 1.0.0
 - Added principles: I. Spec Before Substance, II. Right Language, Declared Scope,
@@ -76,9 +78,13 @@ library and small dependencies; YAGNI over speculative abstraction.
 | `infra/projects/<name>` | One CDK app per project | pnpm, Vitest, `just infra-*` |
 | `infra/common` | Shared CDK constructs (templates) | pnpm, Vitest |
 | `infra/shared` | Resources deployed once per stage (VPC) | `just infra-* shared` |
+| `templates/<kind>/{app,infra}` | Scaffold sources (placeholders; not in any workspace) | `scripts/new-app.mjs`, `just test-templates` |
 | `specs/` | Spec Kit feature specs | `/speckit-*` skills |
 
-- Scaffold with `just new-go <name>`, `just new-py <name>`, `just new-web <name>`.
+- Scaffold with `just new-go|new-py|new-web|new-ts <name>`. Each creates the app **and** its
+  `infra/projects/<app>` from `templates/<kind>/{app,infra}`, and refuses if either exists.
+  Change what new apps look like by editing `templates/`, which CI checks by scaffolding
+  every kind (`just test-templates`).
 - Go module paths are `bluebelle/<path>`.
 - Python requires 3.13+, TypeScript runs in `strict` mode, and Go uses the version in `.mise.toml`.
 - Secrets never go in the repo; use `.env` (gitignored) with a committed `.env.example`.
@@ -135,4 +141,4 @@ deviation in the plan's Complexity Tracking table. Amend via
 principles, MINOR for new principles or sections, PATCH for wording.
 Day-to-day agent guidance lives in `CLAUDE.md`.
 
-**Version**: 1.2.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-02
+**Version**: 1.3.0 | **Ratified**: 2026-11-02 | **Last Amended**: 2026-11-03

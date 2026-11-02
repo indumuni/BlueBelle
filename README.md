@@ -23,9 +23,12 @@ whenever you `cd` into the repo.
 
 ```
 apps/
-  api-go/        sample Go HTTP service      go run ./apps/api-go/cmd/api-go
+  api-go/        sample Go HTTP service      go run ./apps/api-go/cmd/api
   svc-py/        sample FastAPI service      uv run svc-py
   web-react/     sample Vite + React app     pnpm --filter web-react dev
+  api-ts/        sample Hono (TS) service    pnpm --filter api-ts dev
+templates/<kind>/{app,infra}/  sources for just new-go|new-py|new-web|new-ts
+scripts/               scaffold generator (new-app.mjs) and repo checks
 packages/{go,py,ts}/   shared libraries
 contracts/             OpenAPI / Protobuf for cross-language interfaces
 infra/projects/<name>/ one AWS CDK app per project (deploy/destroy independently)
@@ -35,16 +38,24 @@ specs/                 Spec Kit feature specs
 .specify/              Spec Kit constitution, templates, scripts
 ```
 
-The sample apps are smoke tests for the tooling. Delete them whenever you like
-(`apps/web-react` is also the template for `just new-web`).
+The sample apps were generated from `templates/` (`just new-go api`, `new-py svc`,
+`new-web react`, `new-ts api`). They're smoke tests for the tooling; delete any of them
+whenever you like.
 
 ## Starting a new idea
 
+Each command creates the app **and** its AWS infra project from `templates/<kind>`,
+registers it with its workspace and installs dependencies. It refuses (and writes
+nothing) if either folder already exists.
+
 ```sh
-just new-go  my-idea     # → apps/my-idea-go
-just new-py  my-idea     # → apps/my-idea-py
-just new-web my-idea     # → apps/web-my-idea
+just new-go  my-idea     # → apps/my-idea-go   + infra/projects/my-idea-go   (Lambda + HTTP API)
+just new-py  my-idea     # → apps/my-idea-py   + infra/projects/my-idea-py   (Lambda + HTTP API)
+just new-web my-idea     # → apps/web-my-idea  + infra/projects/web-my-idea  (S3 + CloudFront)
+just new-ts  my-idea     # → apps/my-idea-ts   + infra/projects/my-idea-ts   (Lambda + HTTP API)
 ```
+
+To change what new apps look like, edit `templates/` (see [`templates/README.md`](templates/README.md)).
 
 For anything bigger than a spike, start with a spec in Claude Code:
 

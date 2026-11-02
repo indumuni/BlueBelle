@@ -11,8 +11,11 @@ development with GitHub Spec Kit. The rules live in
 - `just fmt`: auto-format everything
 - `just infra-list`, `just infra-synth|infra-diff|infra-deploy|infra-destroy <target> [stage]`: AWS CDK
   per project (`<target>` is `shared` or a name under `infra/projects/`)
-- `just new-infra <name>`: scaffold `infra/projects/<name>`
-- `just new-go <name>` / `just new-py <name>` / `just new-web <name>`: scaffold an app
+- `just new-go|new-py|new-web|new-ts <name>`: scaffold an app **plus** its `infra/projects/<app>`
+  from `templates/<kind>/{app,infra}` (via `scripts/new-app.mjs`; refuses if either folder exists)
+- `just new-infra <name>`: empty `infra/projects/<name>` for stacks that don't belong to an app
+- `just test-scripts`: generator tests (part of `just test`); `just test-templates`: CI only,
+  scaffolds every kind and runs lint/test/build/synth
 
 Tools are pinned in `.mise.toml`. If a tool isn't found, run `eval "$(mise env -s bash)"`
 or prefix commands with `mise exec --`.
@@ -21,6 +24,10 @@ or prefix commands with `mise exec --`.
 - `apps/<name>-go`: Go modules, listed in `go.work`, module path `bluebelle/apps/<name>-go`
 - `apps/<name>-py`: uv workspace members, src layout, tests in `tests/`
 - `apps/web-<name>`: Vite + React + TS, Vitest + Testing Library
+- `apps/<name>-ts`: Node backend on Hono, Vitest (`app.request()`), runs on Lambda via `nodeWebCode`
+- `templates/<kind>/{app,infra}`: scaffold sources with `__NAME__`/`__BASE__`/`__PKG__`/`__PASCAL__`
+  placeholders. Not in any workspace, ignored by biome/ruff; change them instead of hand-editing
+  new apps. See `templates/README.md`.
 - `packages/{go,py,ts}/`: shared libraries. Apps never import from other apps.
 - `contracts/`: OpenAPI/Protobuf for anything crossing a language boundary
 - `infra/projects/<name>`: one independent CDK app per app (same name as `apps/<name>`)
