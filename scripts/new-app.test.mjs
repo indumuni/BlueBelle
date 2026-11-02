@@ -226,6 +226,6 @@ test("a failed registration step prints the exact undo commands", () => {
   assert.match(res.stderr, /failed: go work use \.\/apps\/idea-go/);
   assert.match(
     res.stderr,
-    /rm -rf apps\/idea-go infra\/projects\/idea-go && go work edit -dropuse \.\/apps\/idea-go && pnpm install/,
+    /rm -rf apps\/idea-go infra\/projects\/idea-go && go work edit -dropuse \.\/apps\/idea-go && pnpm install --no-frozen-lockfile/,
   );
 });

@@ -182,11 +182,12 @@ function main(argv) {
   const undo = [
     `rm -rf ${parts.map((p) => rel(p.dest)).join(" ")}`,
     ...k.unregister(app),
-    "pnpm install",
+    "pnpm install --no-frozen-lockfile",
   ].join(" && ");
   const steps = [
     ...k.register(app),
-    ["pnpm", ["install", "--silent"]],
+    // pnpm freezes the lockfile when CI=true, but a new package always changes it.
+    ["pnpm", ["install", "--silent", "--no-frozen-lockfile"]],
     [
       "pnpm",
       [
