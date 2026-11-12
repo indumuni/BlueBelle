@@ -4,7 +4,10 @@ info:
   version: 1.0.0
   description: >
     Implemented by every backend template (Go, Python, TypeScript). The
-    Lambda Web Adapter polls this path as its readiness check.
+    Lambda Web Adapter polls this path as its readiness check. Only GET is
+    specified; other methods on /health are framework-defined (Go and
+    Python return 405, TypeScript returns 404) and are not part of this
+    contract.
 paths:
   /health:
     get:

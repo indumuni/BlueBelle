@@ -136,7 +136,7 @@ Infra templates come in US2. Until then, keep a minimal `templates/<kind>/infra/
   - devDeps `@types/node`, `tsx`, `typescript`, `vitest` at the versions used in `infra/projects/api-go/package.json`.
 - [X] T023 [P] [US1] Create `templates/ts/app/tsconfig.json`: extends `../../tsconfig.base.json`, with `lib ES2023`, `types ["node"]`, `noEmit`, `allowImportingTsExtensions` and `include ["src"]`.
 - [X] T024 [P] [US1] Create `templates/ts/app/src/app.ts` (`export const app = new Hono()`, `app.get("/health", (c) => c.json({ status: "ok" }))`) and `templates/ts/app/src/server.ts`. The server calls `serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3000), hostname: "127.0.0.1" })` and logs `__NAME__ listening on …`.
-- [X] T025 [P] [US1] Create `templates/ts/app/src/app.test.ts` (Vitest). It checks that `await app.request("/health")` gives status 200 with JSON `{status:"ok"}`, that POST `/health` gives 404 (Hono's default for an unmatched method), and that `/nope` gives 404.
+- [X] T025 [P] [US1] Create `templates/ts/app/src/app.test.ts` (Vitest). It checks that `await app.request("/health")` gives status 200 with JSON `{status:"ok"}`, that POST `/health` gives 404 (Hono's default for an unmatched method; intentional, see spec Clarifications 2026-11-12), and that `/nope` gives 404.
 - [X] T026 [P] [US1] Create `templates/ts/app/README.md` (`pnpm --filter __NAME__ dev`, `curl localhost:3000/health`).
 
 ### Commands

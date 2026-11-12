@@ -24,6 +24,10 @@ This feature adds one dedicated set of templates: Go service, Python service, Re
 - Q: What happens to the existing sample apps? → A: Delete them and their infrastructure, then regenerate them from the new templates, plus one new TypeScript backend sample.
 - Q: Which HTTP framework should the TypeScript backend use? → A: A small, standards-based framework that can be tested without starting a server (the plan records the choice).
 
+### Session 2026-11-12
+
+- Q: Must backends agree on responses other than `GET /health`? → A: No. The shared interface is `GET /health` only. Other methods and unknown paths keep each framework's default: a wrong method on `/health` returns 405 in Go and Python and 404 in TypeScript, and unknown paths return 404.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Create a new app of any kind from a template (Priority: P1)
@@ -110,7 +114,7 @@ The existing sample apps are removed and regenerated with the new commands: a Go
 - **FR-001**: The repository MUST contain one dedicated templates location with an app template and an infrastructure template for each of the four kinds: Go service, Python service, web UI and TypeScript backend.
 - **FR-002**: Templates MUST NOT be treated as apps. Project-wide lint, test, build and infrastructure listing MUST ignore the templates location.
 - **FR-003**: Templates MUST use placeholders for every name-dependent value (folder names, package or module identifiers, stack class names, display names). Placeholders MUST be replaced with forms of the chosen name that are valid in each language.
-- **FR-004**: Every backend template MUST expose a health endpoint that returns an OK status, and the same health interface MUST hold across all backend kinds.
+- **FR-004**: Every backend template MUST expose `GET /health` returning 200 with `{"status":"ok"}`, as defined in `contracts/health.openapi.yaml`. This is the only interface that MUST be identical across backend kinds; responses to other methods and paths follow each framework's defaults.
 - **FR-005**: Every app template MUST include at least one automated test. Every infrastructure template MUST include at least one automated assertion.
 
 **Scaffolding commands**
