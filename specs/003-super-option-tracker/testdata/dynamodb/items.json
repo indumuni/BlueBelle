@@ -1,0 +1,181 @@
+[
+  {
+    "PK": "SOURCE#australiansuper",
+    "SK": "META",
+    "name": "AustralianSuper daily rates",
+    "visibility": "public",
+    "attribution": "Source: AustralianSuper",
+    "mode": "fetch",
+    "lastSuccessAt": "2026-11-12T20:01:05Z",
+    "lastAttemptAt": "2026-11-12T20:00:03Z",
+    "lastError": null,
+    "backfill": {
+      "state": "complete",
+      "cursor": null
+    },
+    "maxRangeDays": 366,
+    "recheckBusinessDays": 5
+  },
+  {
+    "PK": "SOURCE#frankfurter",
+    "SK": "META",
+    "name": "ECB reference rates",
+    "visibility": "public",
+    "attribution": "Exchange rates: European Central Bank",
+    "mode": "fetch",
+    "lastSuccessAt": "2026-11-12T20:00:58Z",
+    "lastAttemptAt": "2026-11-12T20:00:03Z",
+    "lastError": null,
+    "backfill": {
+      "state": "complete",
+      "cursor": null
+    },
+    "maxRangeDays": 3650,
+    "recheckBusinessDays": 5
+  },
+  {
+    "PK": "SOURCE#yahoo",
+    "SK": "META",
+    "name": "Yahoo Finance indices",
+    "visibility": "private",
+    "attribution": "Index data: Yahoo Finance",
+    "mode": "fetch",
+    "lastSuccessAt": "2026-11-12T20:00:51Z",
+    "lastAttemptAt": "2026-11-12T20:00:44Z",
+    "lastError": null,
+    "backfill": {
+      "state": "complete",
+      "cursor": null
+    },
+    "maxRangeDays": 3650,
+    "recheckBusinessDays": 5
+  },
+  {
+    "PK": "SOURCE#australiansuper",
+    "SK": "SERIES#australiansuper.high-growth",
+    "seriesId": "australiansuper.high-growth",
+    "providerKey": "High Growth",
+    "name": "High Growth",
+    "kind": "option",
+    "valueType": "return_pct",
+    "market": "AU",
+    "currency": "AUD",
+    "visibility": "public",
+    "firstDate": "2008-07-01",
+    "lastDate": "2026-10-31",
+    "status": "active"
+  },
+  {
+    "PK": "SOURCE#frankfurter",
+    "SK": "SERIES#frankfurter.aud-usd",
+    "seriesId": "frankfurter.aud-usd",
+    "providerKey": "USD",
+    "name": "AUD/USD",
+    "kind": "fx",
+    "valueType": "level",
+    "market": "FX",
+    "currency": "USD",
+    "visibility": "public",
+    "firstDate": "1999-01-04",
+    "lastDate": "2026-10-30",
+    "status": "active"
+  },
+  {
+    "PK": "SOURCE#yahoo",
+    "SK": "SERIES#yahoo.gspc",
+    "seriesId": "yahoo.gspc",
+    "providerKey": "^GSPC",
+    "name": "S&P 500",
+    "kind": "index",
+    "valueType": "level",
+    "market": "US",
+    "currency": "USD",
+    "visibility": "private",
+    "note": "Price index, excludes dividends",
+    "firstDate": "1985-01-02",
+    "lastDate": "2026-10-30",
+    "status": "active"
+  },
+  {
+    "PK": "OWNER",
+    "SK": "WATCH#australiansuper.high-growth",
+    "group": "invested",
+    "addedAt": "2026-11-13T08:10:02+11:00"
+  },
+  {
+    "PK": "OWNER",
+    "SK": "WATCH#australiansuper.balanced",
+    "group": "invested",
+    "addedAt": "2026-11-13T08:10:09+11:00"
+  },
+  {
+    "PK": "OWNER",
+    "SK": "WATCH#australiansuper.intl-shares",
+    "group": "considering",
+    "addedAt": "2026-11-13T08:11:30+11:00"
+  },
+  {
+    "PK": "OWNER",
+    "SK": "PREFS",
+    "period": "1Y",
+    "currencyView": "AUD",
+    "comparisonSeries": [
+      "yahoo.aord",
+      "yahoo.gspc"
+    ]
+  },
+  {
+    "PK": "OWNER",
+    "SK": "KEY#K7Q2M9XD",
+    "label": "laptop MCP",
+    "secretHash": "$argon2id$v=19$m=19456,t=2,p=1$EXAMPLEONLYSALT$EXAMPLEONLYHASHNOTAREALKEY",
+    "createdAt": "2026-11-13T09:00:00+11:00",
+    "lastUsedAt": "2026-11-14T07:42:10+11:00",
+    "revokedAt": null
+  },
+  {
+    "PK": "RUNS",
+    "SK": "RUN#01JCDX4T8M2Q7V3N5K9R0B6HZE",
+    "trigger": "schedule",
+    "status": "partial",
+    "startedAt": "2026-11-12T20:00:03Z",
+    "finishedAt": "2026-11-12T20:01:12Z",
+    "perSource": [
+      {
+        "sourceId": "australiansuper",
+        "from": "2026-11-05",
+        "to": "2026-11-12",
+        "daysAdded": 1,
+        "daysRevised": 1,
+        "newSeries": [],
+        "error": null
+      },
+      {
+        "sourceId": "yahoo",
+        "from": "2026-11-04",
+        "to": "2026-11-12",
+        "daysAdded": 1,
+        "daysRevised": 0,
+        "newSeries": [],
+        "error": null
+      },
+      {
+        "sourceId": "frankfurter",
+        "from": "2026-11-05",
+        "to": "2026-11-12",
+        "daysAdded": 0,
+        "daysRevised": 0,
+        "newSeries": [],
+        "error": "HTTP 503 from source; existing data unchanged"
+      }
+    ],
+    "expiresAt": 1797458472
+  },
+  {
+    "PK": "LOCK",
+    "SK": "UPDATE",
+    "runId": "01JCDX4T8M2Q7V3N5K9R0B6HZE",
+    "leaseUntil": "2026-11-12T20:15:03Z",
+    "lastFinishedAt": "2026-11-12T20:01:12Z"
+  }
+]
