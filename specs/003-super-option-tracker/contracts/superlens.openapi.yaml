@@ -5,11 +5,14 @@ info:
   description: |
     Data interface for SuperLens (spec 003). Served by the backend CloudFront distribution and, for the web
     app, proxied unchanged under the frontend distribution (research R17), so both servers expose the same paths:
-      - `/data/v1/*`  public, static, cached (S3). No auth.
-      - `/api/v1/*`   owner-only (Lambda). Auth via `X-SuperLens-Token` (Cognito access token, web app)
-                      or `X-Api-Key` (tools). `Authorization` is reserved for CloudFront's SigV4 origin signing.
-    Write requests (POST/PUT/DELETE) MUST send `x-amz-content-sha256` = hex SHA-256 of the body
-    (empty body: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855).
+      - `/data/v1/*`  static, cached (S3).
+      - `/api/v1/*`   dynamic (Lambda).
+    **v1 has no authentication** (research R18): the address is unadvertised and for personal use only.
+    Writes (PUT/DELETE/POST) MUST send `x-amz-content-sha256` = hex SHA-256 of the body, because CloudFront
+    signs requests to the Lambda origin (empty body:
+    e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855).
+    Owner-assisted CSV import is deliberately NOT part of this interface; it writes to S3 with the owner's AWS
+    credentials (FR-016b).
     Canonical copy lives at contracts/superlens.openapi.yaml once implementation starts.
 servers:
   - url: https://{frontend}.cloudfront.net
@@ -20,34 +23,29 @@ servers:
     description: Backend distribution (used directly by tools such as the MCP server)
     variables:
       backend: { default: example-api }
-security:
-  - ownerToken: []
-  - apiKey: []
 tags:
-  - name: public
-    description: Static files served from cache. Not generated as server code.
+  - name: static
+    description: Files served from cache. Not generated as server code.
   - name: data
-  - name: owner
   - name: update
+  - name: watchlist
 
 paths:
   /data/v1/manifest.json:
     get:
-      tags: [public]
-      operationId: getPublicManifest
-      security: []
+      tags: [static]
+      operationId: getManifest
       responses:
         "200":
-          description: Public series and their chunk URLs. `Cache-Control public, max-age=60, s-maxage=86400`.
+          description: All series and their chunk URLs. `Cache-Control public, max-age=60, s-maxage=86400`.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Manifest" }
 
   /data/v1/series/{seriesId}/{chunkFile}:
     get:
-      tags: [public]
-      operationId: getPublicChunk
-      security: []
+      tags: [static]
+      operationId: getChunk
       parameters:
         - $ref: "#/components/parameters/SeriesId"
         - name: chunkFile
@@ -62,51 +60,6 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Chunk" }
         "404": { description: Unknown chunk (error cached 60 s). }
-
-  /api/v1/config:
-    get:
-      tags: [public]
-      operationId: getClientConfig
-      security: []
-      description: |
-        Public runtime settings for the web app (research R17). The only /api path the edge pre-filter allows
-        without credentials. `Cache-Control: public, max-age=300`.
-      responses:
-        "200":
-          description: Sign-in settings.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ClientConfig" }
-
-  /api/v1/me:
-    get:
-      tags: [owner]
-      operationId: getMe
-      responses:
-        "200":
-          description: Who is calling.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [kind]
-                properties:
-                  kind: { type: string, enum: [owner, key] }
-                  keyLabel: { type: string }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-
-  /api/v1/manifest:
-    get:
-      tags: [data]
-      operationId: getFullManifest
-      description: All series, public and private. Private chunk URLs point to /api/v1/series/{id}/chunks/{year}.
-      responses:
-        "200":
-          description: Full manifest.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Manifest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/series:
     get:
@@ -128,28 +81,6 @@ paths:
                   series:
                     type: array
                     items: { $ref: "#/components/schemas/Series" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-
-  /api/v1/series/{seriesId}/chunks/{year}:
-    get:
-      tags: [data]
-      operationId: getPrivateChunk
-      parameters:
-        - $ref: "#/components/parameters/SeriesId"
-        - name: year
-          in: path
-          required: true
-          schema: { type: integer, minimum: 1980, maximum: 2100 }
-      responses:
-        "200":
-          description: |
-            Year chunk for any series. `Cache-Control: private, max-age=31536000, immutable` for closed years,
-            `private, max-age=300` for the current year.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Chunk" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
 
   /api/v1/series/{seriesId}/values:
     get:
@@ -172,7 +103,6 @@ paths:
             text/csv:
               schema: { type: string }
         "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /api/v1/performance:
@@ -208,7 +138,6 @@ paths:
                     type: array
                     items: { $ref: "#/components/schemas/PeriodStats" }
         "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/sources:
     get:
@@ -226,45 +155,18 @@ paths:
                   sources:
                     type: array
                     items: { $ref: "#/components/schemas/DataSource" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-
-  /api/v1/sources/{sourceId}/imports:
-    post:
-      tags: [update]
-      operationId: importSourceFile
-      description: Owner-assisted import fallback (research R7). Owner token or key.
-      parameters:
-        - name: sourceId
-          in: path
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          text/csv:
-            schema: { type: string, maxLength: 5000000 }
-      responses:
-        "202":
-          description: Accepted; processed by an update run.
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/UpdateRun" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "409": { $ref: "#/components/responses/Conflict" }
 
   /api/v1/refresh:
     post:
       tags: [update]
       operationId: requestRefresh
-      description: Start an update now (FR-008). The only write allowed with an API key (FR-015b).
+      description: Start an update now (FR-008). Rate-limited by the lock and cooldown (FR-018, SC-001a).
       responses:
         "202":
           description: Started.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/UpdateRun" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
         "409": { $ref: "#/components/responses/Conflict" }
         "429":
           description: Within the 5-minute cooldown (FR-018).
@@ -294,7 +196,6 @@ paths:
                   runs:
                     type: array
                     items: { $ref: "#/components/schemas/UpdateRun" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/runs/{runId}:
     get:
@@ -308,27 +209,23 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/UpdateRun" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /api/v1/watchlist:
     get:
-      tags: [owner]
+      tags: [watchlist]
       operationId: getWatchlist
-      security: [{ ownerToken: [] }, { apiKey: [] }]
       responses:
         "200":
           description: Watchlist and UI preferences.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Watchlist" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /api/v1/watchlist/{seriesId}:
     put:
-      tags: [owner]
+      tags: [watchlist]
       operationId: putWatchlistEntry
-      security: [{ ownerToken: [] }]
       parameters:
         - $ref: "#/components/parameters/SeriesId"
       requestBody:
@@ -342,25 +239,20 @@ paths:
                 group: { type: string, enum: [invested, considering] }
       responses:
         "204": { description: Saved. }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
     delete:
-      tags: [owner]
+      tags: [watchlist]
       operationId: deleteWatchlistEntry
-      security: [{ ownerToken: [] }]
       parameters:
         - $ref: "#/components/parameters/SeriesId"
       responses:
         "204": { description: Removed (idempotent). }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
 
   /api/v1/preferences:
     put:
-      tags: [owner]
+      tags: [watchlist]
       operationId: putPreferences
-      security: [{ ownerToken: [] }]
       requestBody:
         required: true
         content:
@@ -368,82 +260,9 @@ paths:
             schema: { $ref: "#/components/schemas/Preferences" }
       responses:
         "204": { description: Saved. }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-
-  /api/v1/keys:
-    get:
-      tags: [owner]
-      operationId: listKeys
-      security: [{ ownerToken: [] }]
-      responses:
-        "200":
-          description: Keys without secrets.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [keys]
-                properties:
-                  keys:
-                    type: array
-                    items: { $ref: "#/components/schemas/AccessKey" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-    post:
-      tags: [owner]
-      operationId: createKey
-      security: [{ ownerToken: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [label]
-              properties:
-                label: { type: string, minLength: 1, maxLength: 60 }
-      responses:
-        "201":
-          description: The full key is returned **once**.
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/AccessKey"
-                  - type: object
-                    required: [key]
-                    properties:
-                      key: { type: string, description: "sl_<keyId>_<secret>" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-
-  /api/v1/keys/{keyId}:
-    delete:
-      tags: [owner]
-      operationId: revokeKey
-      security: [{ ownerToken: [] }]
-      parameters:
-        - { name: keyId, in: path, required: true, schema: { type: string } }
-      responses:
-        "204": { description: Revoked; refused from the next request on. }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
+        "400": { $ref: "#/components/responses/BadRequest" }
 
 components:
-  securitySchemes:
-    ownerToken:
-      type: apiKey
-      in: header
-      name: X-SuperLens-Token
-      description: Cognito access token of the owner (web app).
-    apiKey:
-      type: apiKey
-      in: header
-      name: X-Api-Key
-      description: Owner-issued tool key `sl_<keyId>_<secret>`. Read-only except POST /refresh and imports.
-
   parameters:
     SeriesId:
       name: seriesId
@@ -454,12 +273,6 @@ components:
   responses:
     BadRequest:
       description: Invalid input.
-      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
-    Unauthorized:
-      description: Missing, invalid or revoked credentials.
-      content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
-    Forbidden:
-      description: Authenticated, but this action needs the owner's sign-in (not an API key).
       content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
     NotFound:
       description: Not found.
@@ -476,17 +289,11 @@ components:
         code: { type: string }
         message: { type: string }
 
-    ClientConfig:
-      type: object
-      required: [cognitoDomain, userPoolId, clientId, region]
-      properties:
-        cognitoDomain: { type: string, description: "e.g. https://superlens-dev.auth.ap-southeast-2.amazoncognito.com" }
-        userPoolId: { type: string }
-        clientId: { type: string }
-        region: { type: string }
-
     SeriesKind: { type: string, enum: [option, index, fx, other] }
-    Visibility: { type: string, enum: [public, private] }
+    Visibility:
+      type: string
+      enum: [public, private]
+      description: Whether the source allows republishing. Recorded only in v1; not enforced (research R18).
 
     DataSource:
       type: object
@@ -650,13 +457,3 @@ components:
         customTo: { type: string, format: date }
         currencyView: { type: string, enum: [AUD, local] }
         comparisonSeries: { type: array, items: { type: string } }
-
-    AccessKey:
-      type: object
-      required: [keyId, label, createdAt]
-      properties:
-        keyId: { type: string }
-        label: { type: string }
-        createdAt: { type: string, format: date-time }
-        lastUsedAt: { type: [string, "null"], format: date-time }
-        revokedAt: { type: [string, "null"], format: date-time }

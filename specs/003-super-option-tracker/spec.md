@@ -27,6 +27,11 @@
 - Owner input during planning: general market data that is not about the owner should be publicly viewable
   (it is cheap to serve from a cache); the owner's own data and all actions stay private. Series whose
   source terms do not allow republishing stay private. FR-016 and SC-001a updated accordingly.
+- Owner decision during planning (2026-11-13), **supersedes the public/private split above for v1**: the
+  tracker is for the owner's personal use and its address is not shared, so v1 has **no sign-in and no access
+  keys**. All screens, data and the data interface are open to anyone with the address. Before the tracker is
+  shared publicly, the owner will add access control or switch restricted data to licensed sources (see
+  "Before going public" in Assumptions). FR-015a/b, FR-016 and SC-001a/b updated accordingly.
 - Q: Should the AUD view convert each day's value using that day's exchange rate, rather than today's rate?
   → A: Yes; each date uses its own rate (or the most recent earlier rate, up to 5 days back), never today's
   rate for all dates.
@@ -230,18 +235,17 @@ values calculated from the stored data.
 - **FR-015**: Users MUST be able to export the stored history for selected options and a period as a CSV
   file.
 - **FR-015a**: System MUST provide a documented, read-only data interface for other tools (scripts,
-  notebooks, AI assistants) that can: list series with their attributes; return a series' values for a date
+  notebooks, AI assistants), usable without credentials in v1, that can: list series with their attributes; return a series' values for a date
   range, optionally converted to AUD; and report each source's last successful update. The interface MUST be
   defined as a published contract before it is built.
 - **FR-015b**: The data interface MUST NOT allow changing stored data or the watchlist, other than a single
   "request refresh" action subject to FR-008's one-update-at-a-time rule.
 - **FR-016**: System MUST be hosted online so the owner can use it from any device, including a phone browser,
-  and MUST let only the owner sign in. Anyone, signed in or not, MAY view charts and summaries of **public**
-  series (series whose source allows republishing, e.g. AustralianSuper's published rates and exchange
-  rates). Everything else is owner-only: private series (e.g. indices whose source does not allow
-  republishing), the watchlist, refresh, update history, access keys and the data interface.
-  Tools using the data interface MUST authenticate with an owner-issued access key that the owner can
-  revoke at any time without affecting their own sign-in.
+  without signing in. In v1 every screen, series, the watchlist, refresh and the data interface are
+  available to anyone with the address; the address is not published. Each series still records whether its
+  source allows republishing (visibility), so access control can be added later without data changes.
+- **FR-016b**: Adding stored data outside the normal update (the owner-assisted import fallback) MUST NOT be
+  possible through the public address; it requires the owner's own cloud credentials.
 - **FR-016a**: Charts and summaries MUST be readable and usable on a phone-sized screen.
 - **FR-017**: System MUST NOT give buy, sell or switch recommendations; it presents data and calculations only.
 - **FR-018**: System MUST avoid putting unnecessary load on the provider: at most one update run at a time and
@@ -262,8 +266,6 @@ values calculated from the stored data.
   (return or level), visibility (public or private, inherited from the source's republishing terms).
 - **Index Level**: A comparison series' closing level for one trading date in its own market.
 - **Watchlist Entry**: An option the owner follows, with its group ("invested" or "considering").
-- **Access Key**: An owner-issued credential for one external tool. Attributes: label, created date, last
-  used date, revoked or not.
 - **Update Run**: A record of one data refresh: source, period requested, days added or revised, outcome,
   and time.
 
@@ -273,13 +275,12 @@ values calculated from the stored data.
 
 - **SC-001**: On a normal morning the owner sees an up-to-date chart of their watchlist within 5 seconds of
   opening the tracker, on a computer or phone, with no manual file download or refresh.
-- **SC-001a**: Someone other than the owner can see public series only; they cannot see private series, the
-  watchlist or update history, or trigger an update, through the screens or the data interface. A revoked
-  access key stops working immediately.
+- **SC-001a**: Nobody can add or replace stored data through the public address. Repeated refresh requests
+  from anyone start at most one update every 5 minutes.
 - **SC-001c**: Heavy anonymous traffic to public pages and data (e.g. a flood of requests) does not raise the
   monthly bill above the budget alert threshold and does not stop the owner using the tracker.
 - **SC-001b**: A new analysis script can list the series and fetch 10 years of one series' daily values using
-  only the interface documentation, in a single request taking under 3 seconds.
+  only the interface documentation and no credentials, in a single request taking under 3 seconds.
 - **SC-002**: A routine daily update requests no more than the missing days plus the 5-day re-check window,
   regardless of how much history is stored.
 - **SC-003**: Changing period, options or chart type redraws in under 2 seconds with full history stored
@@ -293,8 +294,12 @@ values calculated from the stored data.
 
 ## Assumptions
 
-- Single owner: the owner is the only account; no sign-up or multi-user features. Anonymous visitors can only
-  view public series.
+- Single owner, personal use: no accounts, sign-in or multi-user features in v1. The address is shared with
+  nobody, so open access is acceptable. Known risks accepted for v1: anyone who obtains the address can view
+  all data (including index data whose source forbids republishing), change the watchlist, and press Refresh
+  (rate-limited by FR-008/FR-018).
+- **Before going public** (out of scope for v1): add owner sign-in for the watchlist and refresh; either put
+  restricted series behind sign-in or replace them with licensed sources; re-check each source's terms.
 - Hosting should cost only a few dollars a month at single-user volumes and be fully removable.
 - If the provider has not yet published the previous day's rate at 7:00, that day is picked up by the next
   manual refresh or the next morning's run; no extra retries are scheduled in v1.

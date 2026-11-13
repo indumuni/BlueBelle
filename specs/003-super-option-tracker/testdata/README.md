@@ -15,15 +15,12 @@ seeds the file-backed store (`SUPERLENS_STORE=file://…`) and the handler tests
 ```text
 testdata/
 ├── s3/                                   # mirrors the data bucket's keys
-│   ├── data/v1/                          # PUBLIC: served by CloudFront /data/v1/*
-│   │   ├── manifest.json                 # public series only
-│   │   └── series/
-│   │       ├── australiansuper.high-growth/2026.a3f9c2e81b04.json   # option, daily % returns
-│   │       └── frankfurter.aud-usd/2026.0c5e19a7f3d2.json           # FX, USD per 1 AUD
-│   └── private/v1/                       # PRIVATE: only through the signed-in API
-│       ├── manifest.json                 # all series; private chunk URLs point at /api/v1/…
+│   └── data/v1/                          # served by CloudFront /data/v1/* (v1: every series, no private prefix)
+│       ├── manifest.json                 # all series and their chunk URLs
 │       └── series/
-│           └── yahoo.gspc/2026.7d01be44c9a2.json                    # S&P 500 price levels
+│           ├── australiansuper.high-growth/2026.a3f9c2e81b04.json   # option, daily % returns
+│           ├── frankfurter.aud-usd/2026.0c5e19a7f3d2.json           # FX, USD per 1 AUD
+│           └── yahoo.gspc/2026.7d01be44c9a2.json                    # S&P 500 price levels (visibility: private, not enforced in v1)
 └── dynamodb/
     ├── items.json                        # plain JSON, one object per item (easy to read)
     └── batch-write.json                  # same items in DynamoDB typed format for table bb-superlens-go-dev
@@ -37,13 +34,12 @@ testdata/
 | `SOURCE#<id>` / `SERIES#<seriesId>` | Series catalogue entry |
 | `OWNER` / `WATCH#<seriesId>` | Watchlist entry (invested / considering) |
 | `OWNER` / `PREFS` | UI preferences (period, currency view, comparison series) |
-| `OWNER` / `KEY#<keyId>` | Access key (Argon2id hash only; the sample hash is fake) |
 | `RUNS` / `RUN#<ulid>` | Update run: a `partial` run where the FX source failed and its data was left unchanged |
 | `LOCK` / `UPDATE` | Update lock with lease and last finish time |
 
 ## Loading into a real table (dev only)
 
-`batch-write.json` holds 13 items. `batch-write-item` takes at most 25 per call, so one call is enough:
+`batch-write.json` holds 12 items. `batch-write-item` takes at most 25 per call, so one call is enough:
 
 ```sh
 aws dynamodb batch-write-item --request-items file://testdata/dynamodb/batch-write.json

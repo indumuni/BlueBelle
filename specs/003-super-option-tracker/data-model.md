@@ -19,7 +19,6 @@ The wire shapes of manifests and chunks are defined in
 | Series id | `<sourceId>.<slug>`, slug `^[a-z0-9-]{1,60}$` | `australiansuper.high-growth`, `yahoo.gspc`, `frankfurter.aud-usd` |
 | Date | ISO `YYYY-MM-DD`, the **market's own trading date** | `2026-10-31` |
 | Run id | ULID | `01JC9Z…` |
-| Access key | `sl_<keyId>_<secret>`; keyId 8 chars base32, secret 32 bytes base64url | — |
 
 A series id never changes. If a provider renames an option but keeps its identifier, only `name` changes.
 If the provider's identifier changes, the result is a new series (spec edge case).
@@ -32,7 +31,7 @@ If the provider's identifier changes, the result is a new series (spec edge case
 |---|---|---|
 | id | string | see Identifiers |
 | name | string | display name, e.g. "AustralianSuper daily rates" |
-| visibility | `public` \| `private` | from the source's republishing terms (R6) |
+| visibility | `public` \| `private` | from the source's republishing terms (R6); recorded, not enforced in v1 (R18) |
 | attribution | string | shown in the UI footer, e.g. "Exchange rates: ECB" |
 | mode | `fetch` \| `import` | `import` = owner-assisted (R7 fallback) |
 | maxRangeDays | int | longest period allowed in one request |
@@ -53,7 +52,7 @@ If the provider's identifier changes, the result is a new series (spec edge case
 | valueType | `return_pct` \| `level` | options = daily % return; indices and FX = level |
 | market | string | `AU`, `US`, `UK`, `EM`, `FX` |
 | currency | ISO 4217 | `AUD`, `USD`, `GBP`; FX series: quote currency per 1 AUD |
-| visibility | `public` \| `private` | inherited from the source |
+| visibility | `public` \| `private` | inherited from the source; recorded, not enforced in v1 |
 | note | string? | e.g. "price index, excludes dividends", "EEM ETF proxy" |
 | firstDate / lastDate | date | maintained by the update job |
 | status | `active` \| `discontinued` | discontinued when absent from the provider for 10 business days (FR-014) |
@@ -68,8 +67,7 @@ If the provider's identifier changes, the result is a new series (spec edge case
 
 ### Chunk (S3 object)
 
-- Key: `data/v1/series/<seriesId>/<year>.<hash12>.json` (public) or
-  `private/v1/series/<seriesId>/<year>.<hash12>.json` (private).
+- Key: `data/v1/series/<seriesId>/<year>.<hash12>.json` for every series (v1 has no private prefix, R18).
 - `hash12` = first 12 hex characters of the SHA-256 of the canonical JSON body, so the name changes whenever
   the content changes, and objects are never overwritten in place.
 - Body: `{ seriesId, year, points: [[date, value, revised?], …] }`, sorted by date. Arrays rather than
@@ -79,10 +77,16 @@ If the provider's identifier changes, the result is a new series (spec edge case
 
 ### Manifest (S3 object)
 
-- `data/v1/manifest.json` (public series only) and `private/v1/manifest.json` (all series).
+- `data/v1/manifest.json`, listing all series.
 - Body: `{ generatedAt, sources: [DataSource summary], series: [Series + chunks: { "<year>": "<url>" }] }`.
-- Public manifest headers: `Cache-Control: public, max-age=60, s-maxage=86400`; the path is invalidated
-  after every update that changed public data.
+- Headers: `Cache-Control: public, max-age=60, s-maxage=86400`; the path is invalidated on the backend
+  distribution after every update that changed data.
+
+### Import file (S3 object, fallback only)
+
+- Key: `imports/<sourceId>/<timestamp>.csv`, written only with the owner's AWS credentials (FR-016b). The
+  upload event starts an update run with `trigger = import`. Processed files are deleted after 30 days
+  (lifecycle rule).
 
 ### WatchlistEntry (DynamoDB)
 
@@ -93,16 +97,6 @@ If the provider's identifier changes, the result is a new series (spec edge case
 | addedAt | timestamp | |
 
 UI preferences (last-used period, currency view) are stored alongside as `PREFS` (FR-013, Story 4.2).
-
-### AccessKey (DynamoDB)
-
-| Field | Type | Rules |
-|---|---|---|
-| keyId | string | public part of the key |
-| label | string | 1–60 chars, e.g. "laptop MCP" |
-| secretHash | string | Argon2id (m=19 MiB, t=2, p=1); the secret itself is never stored |
-| createdAt / lastUsedAt | timestamp | `lastUsedAt` updated at most once a minute |
-| revokedAt | timestamp? | once set, the key is refused on the next request (SC-001a) |
 
 ### UpdateRun (DynamoDB)
 
@@ -129,12 +123,11 @@ put: no lock exists, or the lease has expired. Refresh is refused with `409` whi
 | Series | `SOURCE#<sourceId>` | `SERIES#<seriesId>` |
 | WatchlistEntry | `OWNER` | `WATCH#<seriesId>` |
 | Preferences | `OWNER` | `PREFS` |
-| AccessKey | `OWNER` | `KEY#<keyId>` |
 | UpdateRun | `RUNS` | `RUN#<runId>` (ULIDs sort by time) |
 | UpdateLock | `LOCK` | `UPDATE` |
 
 Access patterns: list sources and their series (one query per source, or a scan of under 100 items); get or
-put a watchlist entry; look up a key by id; list the latest runs (query `RUNS`, descending, with a limit);
+put a watchlist entry; list the latest runs (query `RUNS`, descending, with a limit);
 take the lock. No GSIs are needed.
 
 ## State transitions
@@ -148,7 +141,6 @@ Series.status:        active ──absent 10 business days──▶ discontinued
 
 UpdateRun.status:     running ──▶ succeeded | partial | failed
 
-AccessKey:            active ──revoke──▶ revoked (terminal)
 ```
 
 ## Validation rules (from the spec)

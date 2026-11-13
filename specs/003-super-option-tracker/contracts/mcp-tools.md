@@ -1,14 +1,15 @@
 # MCP Contract: `superlens-mcp`
 
 A local stdio MCP server (`apps/superlens-go/cmd/superlens-mcp`). It is a thin client of
-[superlens.openapi.yaml](./superlens.openapi.yaml) and holds no data of its own.
+[superlens.openapi.yaml](./superlens.openapi.yaml) and holds no data of its own. v1 needs no credentials
+(research R18).
 
 Configuration (environment variables):
 
 | Var | Required | Meaning |
 |---|---|---|
 | `SUPERLENS_URL` | yes | backend distribution URL, e.g. `https://dxxxx.cloudfront.net` (the frontend URL also works) |
-| `SUPERLENS_API_KEY` | yes | owner-issued key `sl_…` (never committed) |
+| `AWS_PROFILE` | only for `import` | owner's AWS profile; `import` writes to S3 directly |
 
 ## Tools
 
@@ -29,9 +30,10 @@ Every tool result carries `disclaimer: "Data and calculations only; not financia
 
 ## CLI subcommand (same binary)
 
-- `superlens-mcp import <sourceId> <file.csv>`: research R7 fallback; `POST /api/v1/sources/{id}/imports`.
+- `superlens-mcp import <sourceId> <file.csv>`: research R7 fallback. Uploads the file to
+  `s3://<data bucket>/imports/<sourceId>/<timestamp>.csv` with the owner's AWS credentials; the upload
+  triggers an update run. There's no public endpoint for this (FR-016b).
 
 ## Errors
 
-API errors are passed through as MCP tool errors with the API's `code` and `message`. A 401 tells the user
-to check `SUPERLENS_API_KEY`.
+API errors are passed through as MCP tool errors with the API's `code` and `message`.

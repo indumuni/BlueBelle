@@ -20,10 +20,9 @@ dependent code is written.
 ## R2. Overall shape: static-first, serverless, everything behind CloudFront
 
 - **Decision**: Precompute data into **immutable JSON files in S3** and serve them through **CloudFront**.
-  The backend distribution serves public data (`/data/*`) and the owner-only API (`/api/*`). The frontend
+  The backend distribution serves the data (`/data/*`) and the API (`/api/*`). The frontend
   distribution serves the React app and passes `/data/*` and `/api/*` through to the backend distribution,
-  so the browser sees one origin (R17). Compute runs only for (a) the daily/manual update and (b) owner-only
-  API calls.
+  so the browser sees one origin (R17). Compute runs only for (a) the daily/manual update and (b) API calls.
 - **Rationale**: The data changes once a day and past days never change after the 5-day re-check window, so
   the read path can be almost entirely cache hits. That gives the lowest cost (no compute per chart view),
   the fastest charts (SC-001, SC-003) and the best protection against floods (R9), because anonymous traffic
@@ -47,11 +46,11 @@ dependent code is written.
   - **Series values** → S3, one JSON **chunk per series per calendar year**, content-addressed
     (`<year>.<hash>.json`), so every chunk is immutable and cacheable forever. A small **manifest** lists
     series and their current chunk URLs; it is the only file that changes daily.
-  - **Metadata and state** (sources, series catalogue, watchlist, access keys, update runs, backfill cursor,
+  - **Metadata and state** (sources, series catalogue, watchlist, update runs, backfill cursor,
     update lock) → one **DynamoDB** table, on-demand billing.
 - **Rationale**: Full history is tiny (≈40 series × 25 years × 260 days ≈ 260 k points, a few MB of JSON). A
   year chunk is ≤ 10 KB gzipped, so a 25-year chart is ~25 cached requests made in parallel. DynamoDB gives
-  conditional writes for the lock and access keys, and on-demand pricing is effectively free at this size
+  conditional writes for the lock, and on-demand pricing is effectively free at this size
   (well inside the always-free 25 GB).
 - **Alternatives**:
   - All values in DynamoDB: needs Lambda on every read, so no cache-only read path.
@@ -63,11 +62,10 @@ dependent code is written.
 - **Decision**:
   - Chunks: `Cache-Control: public, max-age=31536000, immutable` (content hash in the name, so they never go
     stale).
-  - Public manifest `/data/v1/manifest.json`: `max-age=60, s-maxage=86400`. After every successful update
+  - Manifest `/data/v1/manifest.json`: `max-age=60, s-maxage=86400`. After every successful update
     the job writes a new manifest and **invalidates that one path** (the first 1,000 invalidation paths a
     month are free; we use ~31).
-  - Private chunks via `/api/v1/series/{id}/chunks/{year}`: `Cache-Control: private, max-age=31536000,
-    immutable` for closed years, `private, max-age=300` for the current year. Browser cache only.
+  - API GET responses: `public, max-age=60, s-maxage=300` (v1 has no per-user content, R18).
   - The CloudFront cache policy for `/data/*` **ignores all query strings, headers and cookies**, and error
     responses (403/404) are cached for 60 s.
   - The Go API keeps a small in-memory LRU of decoded chunks keyed by hash (safe because they're immutable).
@@ -76,7 +74,11 @@ dependent code is written.
 - **Alternatives**: Fixed TTLs without content hashes (forces a choice between stale data and frequent
   misses); a separate cache service such as ElastiCache (always-on cost).
 
-## R6. Public vs private data (spec FR-016 as amended)
+## R6. Public vs private data (spec FR-016 as amended) — **superseded for v1 by R18**
+
+> v1 serves every series from `data/v1/` with no sign-in. `visibility` is still recorded per source so
+> this split can be switched on before going public. The text below is the design for that switch.
+
 
 - **Decision**: Each data source has a `visibility`.
   - **Public**: AustralianSuper options (published openly by the fund; **VERIFY IN SPIKE** that the
@@ -146,13 +148,14 @@ Layered, with zero or near-zero fixed cost:
    month) already covers normal use; skip paid WAF (~$6+/month) and rely on the layers below.
 3. **Cache-only public path**: anonymous traffic hits only cached `/` and `/data/*` content; cache keys
    ignore query strings, headers and cookies; errors are cached.
-4. **CloudFront Function on `/api/*`** (~$0.10 per million): rejects requests that carry neither an auth
-   token nor an API-key header before they reach Lambda, and enforces `GET` on reads.
+4. ~~CloudFront Function pre-filter on `/api/*`~~: **dropped in v1** (R18). With no credentials there's
+   nothing to pre-check. Restore it together with sign-in before going public.
 5. **Lambda reserved concurrency**: API = 5, update job = 1. This caps the worst-case compute bill and also
    enforces one update at a time.
 6. **Refresh cooldown**: a DynamoDB lock with a 15-minute lease, and refresh refused within 5 minutes of the
    last run (FR-018).
-7. **Cognito**: self sign-up disabled, one admin-created owner, **TOTP MFA required** (free).
+7. ~~Cognito sign-in~~: **dropped in v1** (R18). The CSV import is not exposed publicly at all; it needs the
+   owner's AWS credentials (FR-016b).
 8. **Budget alarm**: AWS Budgets at $5/month (two budgets are free) plus Cost Anomaly Detection (free),
    both emailing the owner. This is the backstop for SC-001c.
 - **Alternatives**: Paid WAF on pay-as-you-go (~$6–10/month fixed); API Gateway usage plans (only on REST
@@ -167,19 +170,22 @@ Layered, with zero or near-zero fixed cost:
   - `cmd/superlens-update` — update job (`aws-lambda-go`), triggered by EventBridge Scheduler, by the API
     (async invoke), or by an import.
   - `cmd/superlens-mcp` — local MCP server (stdio) for Claude and other AI tools, built on the official
-    `github.com/modelcontextprotocol/go-sdk`. It calls the data interface with an access key. It also hosts
-    the `import` subcommand from R7.
+    `github.com/modelcontextprotocol/go-sdk`. It calls the data interface (no credentials in v1). It also hosts
+    the `import` subcommand from R7, which writes to S3 with the owner's AWS credentials.
   - Internal packages: `source` (adapter interface + `australiansuper`, `yahoo`, `frankfurter`),
     `series` (merge, delta, chunking, hashing), `calc` (compounding, drawdown, AUD conversion), `store`
-    (S3 + DynamoDB), `auth` (Cognito JWT via JWKS with `golang-jwt/jwt/v5` + `MicahParks/keyfunc/v3`,
-    access-key hashing), `api` (handlers).
+    (S3 + DynamoDB), `api` (handlers). No `auth` package in v1 (R18).
 - **Rationale**: Covers a broad slice of Go (HTTP servers, Lambda handlers, AWS SDK v2, concurrency for
   parallel fetches with `errgroup`, generics in the series code, code generation, MCP) while staying a single
   module that is deleted in one go (Principle VI).
 - **Alternatives**: Separate modules per binary (more `go.work` churn, no benefit); a web framework
   (Gin/Echo; the 1.22+ standard library routing is enough, and better for learning).
 
-## R11. Auth for the owner and for tools
+## R11. Auth for the owner and for tools — **deferred; not in v1 (R18)**
+
+> Kept as the ready-made design for "before going public". Only the last bullet (`x-amz-content-sha256`)
+> applies in v1.
+
 
 - **Decision**:
   - Owner sign-in: **Amazon Cognito user pool** (Lite tier, free under 10 k MAU) with managed login,
@@ -242,7 +248,7 @@ Layered, with zero or near-zero fixed cost:
 
 | Item | In this feature? | What |
 |---|---|---|
-| **MCP server** (`superlens-mcp`) | **Yes** (supports FR-015a) | Tools `list_series`, `get_series_values`, `compare_performance` (period stats for several series, AUD or local), `get_update_status`, `request_refresh`. Resource `superlens://series/{id}`. Lets Claude Code / Claude Desktop analyse your data directly instead of you pasting CSVs. |
+| **MCP server** (`superlens-mcp`) | **Yes** (supports FR-015a) | Tools `list_series`, `get_series_values`, `compare_performance` (period stats for several series, AUD or local), `get_update_status`, `request_refresh`. Resource `superlens://series/{id}`. Lets Claude Code / Claude Desktop analyse your data directly instead of you pasting CSVs. Needs only `SUPERLENS_URL` in v1. |
 | **Claude skill** `superlens-analyst` | **Yes** | `.claude/skills/superlens-analyst/SKILL.md`: how to use the MCP tools, a standard morning-brief and "compare options over cycles" workflow, chart conventions, and the FR-017 rule (present data, never recommend). |
 | **Scheduled AI morning brief** | Follow-up | A Claude routine (`/schedule`) at 7:30 that runs the skill and sends a summary. No infra cost; uses your Claude plan. |
 | **RAG over fund documents** | Follow-up spec (004) | Index AustralianSuper option descriptions, asset allocations and PDS/annual reports so analysis can explain *why* options behave differently. Proposed: S3 Vectors + Bedrock Titan embeddings (cents a month), exposed as an extra MCP tool `search_fund_docs`. Left out of v1 to keep scope and cost tight. |
@@ -257,9 +263,7 @@ Layered, with zero or near-zero fixed cost:
 | DynamoDB on-demand (≤ 1 MB, a few thousand requests) | ~$0.00 (free tier) |
 | Lambda (one daily job ~60 s at 512 MB plus owner API calls) | $0.00 (free tier) |
 | EventBridge Scheduler (30 invocations) | $0.00 |
-| Cognito Lite (1 MAU) | $0.00 |
 | CloudWatch Logs (2-week retention, small) | ~$0.05 |
-| CloudFront Function (owner traffic only reaches `/api/*`) | ~$0.00 |
 | AWS Budgets (2 free) + Cost Anomaly Detection | $0.00 |
 | **Total** | **≈ $0.10/month**; worst case under a flood is capped by R9 |
 
@@ -271,7 +275,7 @@ An optional custom domain adds Route 53 ($0.50/month hosted zone plus the domain
 
   | Project | Stack | Owns |
   |---|---|---|
-  | `infra/projects/superlens-go` (backend) | `bb-superlens-go-<stage>` | Data bucket, DynamoDB table, API Lambda (Function URL + OAC), update Lambda, EventBridge schedule, Cognito user pool and app client, **backend CloudFront distribution** (`/data/*` → S3, `/api/*` → Lambda, edge pre-filter), budget and anomaly monitor |
+  | `infra/projects/superlens-go` (backend) | `bb-superlens-go-<stage>` | Data bucket, DynamoDB table, API Lambda (Function URL + OAC), update Lambda, EventBridge schedule, **backend CloudFront distribution** (`/data/*` → S3, `/api/*` → Lambda), budget and anomaly monitor |
   | `infra/projects/web-superlens` (frontend) | `bb-web-superlens-<stage>` | Site bucket and **frontend CloudFront distribution**: SPA at `/*`; `/data/*` and `/api/*` proxied to the backend distribution's domain as an HTTPS origin |
 
 - **How they connect without stack references** (constitution: projects never reference each other's
@@ -279,18 +283,16 @@ An optional custom domain adds Route 53 ($0.50/month hosted zone plus the domain
   - The frontend needs the **backend domain**. It is read from the env var `SUPERLENS_BACKEND_DOMAIN` at
     synth or deploy (e.g. `SUPERLENS_BACKEND_DOMAIN=d111.cloudfront.net just infra-deploy web-superlens`).
     Without it, synth uses the placeholder `backend.invalid` and adds a CDK warning, so CI synth still works.
-  - The backend needs the **web origin** for Cognito's allowed callback and logout URLs, from
-    `SUPERLENS_WEB_ORIGIN`. It defaults to `http://localhost:5173` only.
-  - Runtime settings (Cognito domain, client id, user pool id) come from the backend's public
-    `GET /api/v1/config` (cached 5 minutes). The web build contains no backend values, so the frontend never
-    needs rebuilding when the backend changes.
-  - You may keep both values in a gitignored `infra/.env.<stage>` and `source` it before deploying.
-- **First deploy order** (once per stage): backend → frontend with `SUPERLENS_BACKEND_DOMAIN` → backend again
-  with `SUPERLENS_WEB_ORIGIN`. After that, each project deploys and destroys independently. If the backend
+  - The backend needs nothing from the frontend in v1 (no sign-in, so no Cognito callback URL; R18). The web
+    build contains no backend values.
+  - You may keep the value in a gitignored `infra/.env.<stage>` and `source` it before deploying.
+- **Deploy order** (first time per stage): backend → frontend with `SUPERLENS_BACKEND_DOMAIN`. After that,
+  each project deploys and destroys independently. (Adding sign-in later brings back `SUPERLENS_WEB_ORIGIN`
+  and a third step, R11.) If the backend
   is destroyed, the frontend still serves the app but `/data` and `/api` return errors.
 - **Why proxy instead of calling the backend cross-origin**: the browser stays same-origin. The custom
-  headers (`X-SuperLens-Token`, `x-amz-content-sha256`) would otherwise trigger a CORS pre-flight before
-  every API call, and the contract's paths and auth stay exactly as designed.
+  header `x-amz-content-sha256` (and, later, auth headers) would otherwise trigger a CORS pre-flight before
+  every API call, and the contract's paths stay exactly as designed.
 - **Caching across the two layers**:
   - Frontend `/data/*` uses the origin's cache headers, so immutable chunks are cached at both
     distributions.
@@ -299,9 +301,8 @@ An optional custom domain adds Route 53 ($0.50/month hosted zone plus the domain
     The backend never needs to know the frontend's distribution id, so there's no reverse dependency.
   - Frontend `/api/*`: caching disabled; forwards all viewer headers, query strings and cookies **except
     `Host`**.
-- **Protection**: as R9 for the backend. The frontend forwards `/api/*` unchanged, so the backend's edge
-  pre-filter still applies. `GET /api/v1/config` is the only `/api` path the pre-filter lets through without
-  credentials. Tools (MCP, scripts) call the backend domain directly.
+- **Protection**: as R9 for the backend. The frontend forwards `/api/*` unchanged. Tools (MCP, scripts) call
+  the backend domain directly.
 - **`infra/common` change**: `StaticSite` gains an optional `proxies: { pathPattern, domainName,
   cachePolicy? }[]` that adds extra behaviours to an HTTPS origin, with tests. It's reusable for any site
   that fronts an API.
@@ -325,4 +326,45 @@ An optional custom domain adds Route 53 ($0.50/month hosted zone plus the domain
     the three-step first deploy go away. This is the cleanest option, but it costs ~$0.50/month plus the
     domain. **Owner decision (2026-11-13): no domain for now; keep the env-var settings.** Upgrade path:
     add the zone and certificate to `shared`, then derive both names from it in each project's `bin/app.ts`,
-    replacing `SUPERLENS_BACKEND_DOMAIN` / `SUPERLENS_WEB_ORIGIN`. Nothing else in the design changes.
+    replacing `SUPERLENS_BACKEND_DOMAIN`. Nothing else in the design changes.
+
+## R18. No authentication in v1 (owner decision, 2026-11-13)
+
+- **Decision**: v1 is for personal use at an unadvertised address, so it has **no sign-in and no access
+  keys**. Every screen, series, the watchlist, Refresh and the data interface are open to anyone with the
+  address. This supersedes R6 (enforcement), R11 and parts of R9 for v1.
+- **What stays protected, at no cost**:
+  - **Stored data can't be changed through the address.** The only public write paths are Refresh (which
+    re-fetches from the real sources) and the watchlist/preferences. The CSV import fallback (R7) is not an
+    endpoint: `superlens-mcp import` uploads to `s3://…/imports/` with the owner's AWS credentials, and the
+    S3 event starts the update job (FR-016b).
+  - **Refresh can't be abused.** It is lock- and cooldown-limited (≤ 1 run per 5 minutes, R14), and the update
+    job has reserved concurrency 1.
+  - **The bill is capped**: CloudFront caching, Function URL + OAC origin lockdown, API reserved concurrency 5,
+    and the budget alarm (R9 items 1–3, 5, 6, 8).
+  - **API GET responses are cacheable now.** They have no per-user content, so `/api/v1/series`, `/values`,
+    `/performance`, `/sources` and `/runs` send `Cache-Control: public, max-age=60, s-maxage=300`. The
+    `/api/*` GET cache key includes the query string. Writes are never cached.
+- **Accepted risks for v1**:
+  - Anyone who learns the address can see all data, including index data whose source forbids republishing.
+  - They could edit the watchlist and preferences (annoying, not harmful; data is unaffected).
+  - They could press Refresh (rate-limited).
+- **Removed from the design**:
+  - Cognito user pool, `oidc-client-ts`, the Go `auth` package (`golang-jwt`, `keyfunc`, `argon2`).
+  - Access keys (entity, endpoints and UI), the `private/` S3 prefix and private manifest, the private-chunk
+    endpoint.
+  - `/api/v1/me`, `/api/v1/config`, the import endpoint, the edge pre-filter, `SUPERLENS_WEB_ORIGIN`.
+- **Kept, so going public is a bounded change**:
+  - `visibility` on every source and series.
+  - The R6 and R11 designs written up above.
+  - Same-origin proxying (R17), so auth headers can be added later without CORS work.
+- **Before going public (checklist)**:
+  1. Owner sign-in (R11: Cognito + MFA) on the watchlist, preferences and Refresh; access keys for tools.
+  2. For `visibility: private` sources: serve them only to the signed-in owner (R6), or replace them with
+     licensed data.
+  3. Re-check every source's terms (R7, R8).
+  4. Restore the `/api/*` edge pre-filter and make API caching per-user where needed.
+- **Alternatives**:
+  - Keep full auth now (more work and moving parts for a personal tool).
+  - A single shared-secret header on write endpoints only (cheap middle ground; not chosen, the owner
+    accepts the watchlist risk).

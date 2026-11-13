@@ -125,15 +125,6 @@
     ]
   },
   {
-    "PK": "OWNER",
-    "SK": "KEY#K7Q2M9XD",
-    "label": "laptop MCP",
-    "secretHash": "$argon2id$v=19$m=19456,t=2,p=1$EXAMPLEONLYSALT$EXAMPLEONLYHASHNOTAREALKEY",
-    "createdAt": "2026-11-13T09:00:00+11:00",
-    "lastUsedAt": "2026-11-14T07:42:10+11:00",
-    "revokedAt": null
-  },
-  {
     "PK": "RUNS",
     "SK": "RUN#01JCDX4T8M2Q7V3N5K9R0B6HZE",
     "trigger": "schedule",
