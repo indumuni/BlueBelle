@@ -26,7 +26,7 @@ testdata/
 │           └── yahoo.gspc/2026.7d01be44c9a2.json                    # S&P 500 price levels
 └── dynamodb/
     ├── items.json                        # plain JSON, one object per item (easy to read)
-    └── batch-write.json                  # same items in DynamoDB typed format for table bb-superlens-dev
+    └── batch-write.json                  # same items in DynamoDB typed format for table bb-superlens-go-dev
 ```
 
 ## What each DynamoDB item shows

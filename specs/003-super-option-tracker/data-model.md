@@ -4,8 +4,8 @@
 
 There are two stores:
 
-- **S3 bucket** `bb-superlens-<stage>-data`: series values as immutable year chunks, plus manifests.
-- **DynamoDB table** `bb-superlens-<stage>`: single table holding metadata and state, on-demand billing,
+- **S3 bucket** `bb-superlens-go-<stage>-data` (backend project): series values as immutable year chunks, plus manifests.
+- **DynamoDB table** `bb-superlens-go-<stage>` (backend project): single table holding metadata and state, on-demand billing,
   with TTL on the `expiresAt` attribute.
 
 The wire shapes of manifests and chunks are defined in

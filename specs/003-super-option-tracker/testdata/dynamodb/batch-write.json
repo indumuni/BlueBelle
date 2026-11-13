@@ -1,5 +1,5 @@
 {
-  "bb-superlens-dev": [
+  "bb-superlens-go-dev": [
     {
       "PutRequest": {
         "Item": {

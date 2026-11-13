@@ -10,18 +10,20 @@ dependent code is written.
 
 ## R1. App name
 
-- **Decision**: **SuperLens**. Apps `apps/superlens-go` and `apps/web-superlens`; infra
-  `infra/projects/superlens`; stacks `bb-superlens-<stage>`.
+- **Decision**: **SuperLens**. Apps `apps/superlens-go` and `apps/web-superlens`, each with its own infra
+  project of the same name (R17); stacks `bb-superlens-go-<stage>` and `bb-web-superlens-<stage>`.
 - **Rationale**: Short, fits the repo's `<name>-go` / `web-<name>` naming, and avoids using the provider's
   brand in the product name.
 - **Alternatives**: AustralianSuperVisualizer (long, uses the brand), SuperPulse, OptionWatch. Renaming is
   a find-and-replace until the apps are scaffolded.
 
-## R2. Overall shape: static-first, serverless, one CloudFront front door
+## R2. Overall shape: static-first, serverless, everything behind CloudFront
 
-- **Decision**: Precompute data into **immutable JSON files in S3** and serve them through **one CloudFront
-  distribution**, which also serves the web app (`/*`), public data (`/data/*`) and the private API
-  (`/api/*`). Compute runs only for (a) the daily/manual update and (b) owner-only API calls.
+- **Decision**: Precompute data into **immutable JSON files in S3** and serve them through **CloudFront**.
+  The backend distribution serves public data (`/data/*`) and the owner-only API (`/api/*`). The frontend
+  distribution serves the React app and passes `/data/*` and `/api/*` through to the backend distribution,
+  so the browser sees one origin (R17). Compute runs only for (a) the daily/manual update and (b) owner-only
+  API calls.
 - **Rationale**: The data changes once a day and past days never change after the 5-day re-check window, so
   the read path can be almost entirely cache hits. That gives the lowest cost (no compute per chart view),
   the fastest charts (SC-001, SC-003) and the best protection against floods (R9), because anonymous traffic
@@ -133,14 +135,14 @@ dependent code is written.
 
 Layered, with zero or near-zero fixed cost:
 
-1. **Single CloudFront front door.** AWS Shield Standard (network-layer DDoS) is automatic and free. S3 and
-   Lambda are reachable **only** through CloudFront: S3 via Origin Access Control, Lambda via a **Function
+1. **CloudFront in front of everything** (both distributions, R17). AWS Shield Standard (network-layer
+   DDoS) is automatic and free. S3 and Lambda are reachable **only** through the backend distribution: S3 via Origin Access Control, Lambda via a **Function
    URL with `AuthType: AWS_IAM` + CloudFront OAC**. There is no public API Gateway endpoint to attack
    directly.
 2. **CloudFront flat-rate "Free" plan** ($0/month; includes AWS WAF with managed rules, a rate-based rule
    and DDoS protection, with **no overage charges**: traffic beyond the allowance is degraded, not billed).
-   **VERIFY IN SPIKE** that the distribution's features (Function URL + OAC origin, CloudFront Function)
-   are eligible. If not, use pay-as-you-go CloudFront, whose always-free tier (10 M requests and 1 TB a
+   **VERIFY IN SPIKE** that both distributions' features (Function URL + OAC origin, CloudFront Function,
+   a CloudFront origin) are eligible, and that the account may hold two free plans. If not, use pay-as-you-go CloudFront, whose always-free tier (10 M requests and 1 TB a
    month) already covers normal use; skip paid WAF (~$6+/month) and rely on the layers below.
 3. **Cache-only public path**: anonymous traffic hits only cached `/` and `/data/*` content; cache keys
    ignore query strings, headers and cookies; errors are cached.
@@ -250,7 +252,7 @@ Layered, with zero or near-zero fixed cost:
 
 | Item | Estimate |
 |---|---|
-| CloudFront (free flat-rate plan, or the always-free tier) | $0.00 |
+| CloudFront, 2 distributions (free flat-rate plans, or the always-free tier; proxied requests count at both) | $0.00 |
 | S3 (≤ 50 MB, a few thousand requests) | ~$0.01 |
 | DynamoDB on-demand (≤ 1 MB, a few thousand requests) | ~$0.00 (free tier) |
 | Lambda (one daily job ~60 s at 512 MB plus owner API calls) | $0.00 (free tier) |
@@ -262,3 +264,65 @@ Layered, with zero or near-zero fixed cost:
 | **Total** | **≈ $0.10/month**; worst case under a flood is capped by R9 |
 
 An optional custom domain adds Route 53 ($0.50/month hosted zone plus the domain fee). Not included.
+
+## R17. Two infrastructure projects: backend and frontend (owner decision, 2026-11-13)
+
+- **Decision**: One infra project per app, as the scaffolders create them:
+
+  | Project | Stack | Owns |
+  |---|---|---|
+  | `infra/projects/superlens-go` (backend) | `bb-superlens-go-<stage>` | Data bucket, DynamoDB table, API Lambda (Function URL + OAC), update Lambda, EventBridge schedule, Cognito user pool and app client, **backend CloudFront distribution** (`/data/*` → S3, `/api/*` → Lambda, edge pre-filter), budget and anomaly monitor |
+  | `infra/projects/web-superlens` (frontend) | `bb-web-superlens-<stage>` | Site bucket and **frontend CloudFront distribution**: SPA at `/*`; `/data/*` and `/api/*` proxied to the backend distribution's domain as an HTTPS origin |
+
+- **How they connect without stack references** (constitution: projects never reference each other's
+  stacks):
+  - The frontend needs the **backend domain**. It is read from the env var `SUPERLENS_BACKEND_DOMAIN` at
+    synth or deploy (e.g. `SUPERLENS_BACKEND_DOMAIN=d111.cloudfront.net just infra-deploy web-superlens`).
+    Without it, synth uses the placeholder `backend.invalid` and adds a CDK warning, so CI synth still works.
+  - The backend needs the **web origin** for Cognito's allowed callback and logout URLs, from
+    `SUPERLENS_WEB_ORIGIN`. It defaults to `http://localhost:5173` only.
+  - Runtime settings (Cognito domain, client id, user pool id) come from the backend's public
+    `GET /api/v1/config` (cached 5 minutes). The web build contains no backend values, so the frontend never
+    needs rebuilding when the backend changes.
+  - You may keep both values in a gitignored `infra/.env.<stage>` and `source` it before deploying.
+- **First deploy order** (once per stage): backend → frontend with `SUPERLENS_BACKEND_DOMAIN` → backend again
+  with `SUPERLENS_WEB_ORIGIN`. After that, each project deploys and destroys independently. If the backend
+  is destroyed, the frontend still serves the app but `/data` and `/api` return errors.
+- **Why proxy instead of calling the backend cross-origin**: the browser stays same-origin. The custom
+  headers (`X-SuperLens-Token`, `x-amz-content-sha256`) would otherwise trigger a CORS pre-flight before
+  every API call, and the contract's paths and auth stay exactly as designed.
+- **Caching across the two layers**:
+  - Frontend `/data/*` uses the origin's cache headers, so immutable chunks are cached at both
+    distributions.
+  - Frontend `/data/v1/manifest.json` has its own cache policy with a **maximum TTL of 60 s**. The update
+    job only invalidates the backend distribution, and the frontend picks up a new manifest within a minute.
+    The backend never needs to know the frontend's distribution id, so there's no reverse dependency.
+  - Frontend `/api/*`: caching disabled; forwards all viewer headers, query strings and cookies **except
+    `Host`**.
+- **Protection**: as R9 for the backend. The frontend forwards `/api/*` unchanged, so the backend's edge
+  pre-filter still applies. `GET /api/v1/config` is the only `/api` path the pre-filter lets through without
+  credentials. Tools (MCP, scripts) call the backend domain directly.
+- **`infra/common` change**: `StaticSite` gains an optional `proxies: { pathPattern, domainName,
+  cachePolicy? }[]` that adds extra behaviours to an HTTPS origin, with tests. It's reusable for any site
+  that fronts an API.
+- **Alternatives**:
+  - One infra project with one distribution (the previous plan). Simplest at runtime, but it broke the
+    one-infra-project-per-app rule. Dropped at the owner's request.
+  - Frontend calls the backend directly with CORS. Adds a pre-flight per API call and still needs the web
+    origin on the backend.
+  - Frontend reads backend values from SSM at deploy time. Automatic, but it's a cross-project dependency,
+    which the constitution forbids today (only `shared` may be read through SSM). It would need a MINOR
+    amendment.
+  - **Common stack that owns one CloudFront distribution for both apps** (reviewed 2026-11-13). Rejected:
+    the distribution needs both projects' origins, while each origin's access rule (S3 bucket policy for
+    OAC, Lambda Function URL permission) must name the distribution. That's a circular dependency across
+    three projects, so none of them could be deployed or destroyed alone.
+  - **Frontend consuming the backend stack's outputs** (CloudFormation exports / `Fn::ImportValue`).
+    Rejected: forbidden by the constitution for projects. It also locks the backend, which can't change or
+    remove an exported value while the frontend imports it.
+  - **Custom domain in `infra/shared`** (Route 53 hosted zone + ACM certificate in `us-east-1`, read through
+    SSM). Both names are then fixed (`superlens.<domain>` and `api.superlens.<domain>`), so the env vars and
+    the three-step first deploy go away. This is the cleanest option, but it costs ~$0.50/month plus the
+    domain. **Owner decision (2026-11-13): no domain for now; keep the env-var settings.** Upgrade path:
+    add the zone and certificate to `shared`, then derive both names from it in each project's `bin/app.ts`,
+    replacing `SUPERLENS_BACKEND_DOMAIN` / `SUPERLENS_WEB_ORIGIN`. Nothing else in the design changes.

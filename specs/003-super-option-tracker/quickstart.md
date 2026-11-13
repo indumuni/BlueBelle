@@ -13,10 +13,11 @@ How to run SuperLens locally, deploy it, and prove each user story works. The in
 ## 1. Local checks (no AWS)
 
 ```sh
-just lint test                 # all languages, includes the new apps and infra/projects/superlens
+just lint test                 # all languages, includes the new apps and both infra projects
 just test-go                   # Go: adapters (recorded fixtures), merge/delta, calc goldens, API handlers
 just test-ts                   # web: calc goldens, chart and watchlist components, CDK assertions
-just infra-synth superlens     # CloudFormation builds without AWS credentials
+just infra-synth superlens-go     # backend; CloudFormation builds without AWS credentials
+just infra-synth web-superlens    # frontend; warns that SUPERLENS_BACKEND_DOMAIN is unset (expected)
 ```
 
 Expected: all pass. Both `internal/calc` (Go) and `src/lib/calc.ts` (web) pass every file in
@@ -38,19 +39,36 @@ owner features.
 
 ## 2. Deploy (owner approval required each time)
 
+Two independent projects (research R17). The first deploy of a stage takes three steps, because each project
+needs the other's CloudFront domain:
+
 ```sh
-just infra-diff superlens
-just infra-deploy superlens          # → stack bb-superlens-dev; outputs Url, UserPoolId
+# 1. Backend: data, API, update job, Cognito, backend distribution
+just infra-diff superlens-go
+just infra-deploy superlens-go                 # → bb-superlens-go-dev; outputs BackendDomain, UserPoolId
+
+# 2. Frontend: site plus /data and /api proxied to the backend
+export SUPERLENS_BACKEND_DOMAIN=<BackendDomain from step 1>
+just infra-deploy web-superlens                # → bb-web-superlens-dev; outputs Url
+
+# 3. Backend again, so Cognito accepts sign-ins from the web URL
+export SUPERLENS_WEB_ORIGIN=<Url from step 2>
+just infra-deploy superlens-go
 ```
+
+To skip re-typing them, keep both exports in a gitignored `infra/.env.dev` and `source infra/.env.dev`
+before deploying. After the first time, deploy either project on its own.
 
 After the first deploy:
 
 1. Accept the Cognito invite email, set a password and enrol TOTP MFA.
 2. Confirm the budget-alert subscription email.
-3. In the CloudFront console, subscribe the distribution to the **Free flat-rate plan** if eligible
-   (research R9).
-4. Trigger the first backfill: sign in → **Refresh**. Backfill continues automatically across runs until
-   every source reports `backfill: complete`.
+3. In the CloudFront console, subscribe **both** distributions to the **Free flat-rate plan** if eligible
+   (research R9, R17).
+4. Trigger the first backfill: open the web `Url`, sign in → **Refresh**. Backfill continues automatically
+   across runs until every source reports `backfill: complete`.
+
+In the scenarios below, `$URL` is the **web** URL (step 2) and `$API` is `https://<BackendDomain>`.
 
 ## 3. Validation scenarios
 
@@ -66,16 +84,18 @@ After the first deploy:
 | V8 | US4 | Mark 2 options invested and 1 considering; reload on your phone | The same three options open by default, grouped; usable at phone width (FR-016a) |
 | V9 | US5 | Open the snapshot when data is stale (e.g. temporarily disable the schedule) | Stale warning shown |
 | V10 | FR-016, SC-001a | In a private window (signed out) | Public option and FX charts visible; indices, watchlist, Refresh and keys are absent; `GET /api/v1/series` returns `401` |
-| V11 | FR-015a, SC-001b | Create a key in **Settings → Access keys**; then `curl -H "X-Api-Key: $KEY" "$URL/api/v1/series/australiansuper.balanced/values?from=2016-01-01&to=2026-01-01"` | 200 in under 3 s |
+| V11 | FR-015a, SC-001b | Create a key in **Settings → Access keys**; then `curl -H "X-Api-Key: $KEY" "$API/api/v1/series/australiansuper.balanced/values?from=2016-01-01&to=2026-01-01"` | 200 in under 3 s |
 | V12 | SC-001a | Revoke that key; repeat V11 | `401` on the very next request |
-| V13 | SC-001c, R9 | `for i in $(seq 1 2000); do curl -s -o /dev/null "$URL/data/v1/manifest.json?x=$i"; done` | CloudFront metrics show cache hit rate > 99%; S3 GETs barely move; no Lambda invocations |
+| V13 | SC-001c, R9 | Run `for i in $(seq 1 2000); do curl -s -o /dev/null "$URL/data/v1/manifest.json?x=$i"; done`, then the same against `$API` | Both distributions show cache hit rate > 99%; S3 GETs barely move; no Lambda invocations |
 | V14 | MCP (R15) | Add the server to Claude Code (below), ask "compare High Growth with the S&P 500 in AUD over FY2026" | Claude calls `compare_performance`; the figures match V6/V7; includes the disclaimer |
+| V15 | R17 | Signed out, `curl $URL/api/v1/config` and `curl $URL/api/v1/series` | `200` with sign-in settings; `401` (proxied to the backend unchanged) |
+| V16 | R17 | After a manual Refresh that adds a day, reload the web app | The new day appears within 1 minute (frontend manifest TTL ≤ 60 s) |
 
 ### MCP setup for V14
 
 ```sh
 cd apps/superlens-go && go build -o ~/bin/superlens-mcp ./cmd/superlens-mcp
-claude mcp add superlens --env SUPERLENS_URL=$URL --env SUPERLENS_API_KEY=$KEY -- ~/bin/superlens-mcp
+claude mcp add superlens --env SUPERLENS_URL=$API --env SUPERLENS_API_KEY=$KEY -- ~/bin/superlens-mcp
 ```
 
 The key goes in your local Claude config, never in the repo.
@@ -83,5 +103,6 @@ The key goes in your local Claude config, never in the repo.
 ## 4. Tear down
 
 ```sh
-just infra-destroy superlens        # owner approval required; removes everything, including data
+just infra-destroy web-superlens     # owner approval required; removes the site
+just infra-destroy superlens-go      # owner approval required; removes data, API and sign-in
 ```

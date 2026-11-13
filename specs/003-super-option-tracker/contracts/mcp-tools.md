@@ -7,7 +7,7 @@ Configuration (environment variables):
 
 | Var | Required | Meaning |
 |---|---|---|
-| `SUPERLENS_URL` | yes | e.g. `https://dxxxx.cloudfront.net` |
+| `SUPERLENS_URL` | yes | backend distribution URL, e.g. `https://dxxxx.cloudfront.net` (the frontend URL also works) |
 | `SUPERLENS_API_KEY` | yes | owner-issued key `sl_…` (never committed) |
 
 ## Tools
