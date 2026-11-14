@@ -1,0 +1,498 @@
+{
+  "bb-superlens-go-dev": [
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "SOURCE#australiansuper"
+          },
+          "SK": {
+            "S": "META"
+          },
+          "name": {
+            "S": "AustralianSuper daily rates"
+          },
+          "visibility": {
+            "S": "public"
+          },
+          "attribution": {
+            "S": "Source: AustralianSuper"
+          },
+          "mode": {
+            "S": "fetch"
+          },
+          "lastSuccessAt": {
+            "S": "2026-11-12T20:01:05Z"
+          },
+          "lastAttemptAt": {
+            "S": "2026-11-12T20:00:03Z"
+          },
+          "lastError": {
+            "NULL": true
+          },
+          "backfill": {
+            "M": {
+              "state": {
+                "S": "complete"
+              },
+              "cursor": {
+                "NULL": true
+              }
+            }
+          },
+          "maxRangeDays": {
+            "N": "366"
+          },
+          "recheckBusinessDays": {
+            "N": "5"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "SOURCE#frankfurter"
+          },
+          "SK": {
+            "S": "META"
+          },
+          "name": {
+            "S": "ECB reference rates"
+          },
+          "visibility": {
+            "S": "public"
+          },
+          "attribution": {
+            "S": "Exchange rates: European Central Bank"
+          },
+          "mode": {
+            "S": "fetch"
+          },
+          "lastSuccessAt": {
+            "S": "2026-11-12T20:00:58Z"
+          },
+          "lastAttemptAt": {
+            "S": "2026-11-12T20:00:03Z"
+          },
+          "lastError": {
+            "NULL": true
+          },
+          "backfill": {
+            "M": {
+              "state": {
+                "S": "complete"
+              },
+              "cursor": {
+                "NULL": true
+              }
+            }
+          },
+          "maxRangeDays": {
+            "N": "3650"
+          },
+          "recheckBusinessDays": {
+            "N": "5"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "SOURCE#yahoo"
+          },
+          "SK": {
+            "S": "META"
+          },
+          "name": {
+            "S": "Yahoo Finance indices"
+          },
+          "visibility": {
+            "S": "private"
+          },
+          "attribution": {
+            "S": "Index data: Yahoo Finance"
+          },
+          "mode": {
+            "S": "fetch"
+          },
+          "lastSuccessAt": {
+            "S": "2026-11-12T20:00:51Z"
+          },
+          "lastAttemptAt": {
+            "S": "2026-11-12T20:00:44Z"
+          },
+          "lastError": {
+            "NULL": true
+          },
+          "backfill": {
+            "M": {
+              "state": {
+                "S": "complete"
+              },
+              "cursor": {
+                "NULL": true
+              }
+            }
+          },
+          "maxRangeDays": {
+            "N": "3650"
+          },
+          "recheckBusinessDays": {
+            "N": "5"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "SOURCE#australiansuper"
+          },
+          "SK": {
+            "S": "SERIES#australiansuper.high-growth"
+          },
+          "seriesId": {
+            "S": "australiansuper.high-growth"
+          },
+          "providerKey": {
+            "S": "High Growth"
+          },
+          "name": {
+            "S": "High Growth"
+          },
+          "kind": {
+            "S": "option"
+          },
+          "valueType": {
+            "S": "return_pct"
+          },
+          "market": {
+            "S": "AU"
+          },
+          "currency": {
+            "S": "AUD"
+          },
+          "visibility": {
+            "S": "public"
+          },
+          "firstDate": {
+            "S": "2008-07-01"
+          },
+          "lastDate": {
+            "S": "2026-10-31"
+          },
+          "status": {
+            "S": "active"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "SOURCE#frankfurter"
+          },
+          "SK": {
+            "S": "SERIES#frankfurter.aud-usd"
+          },
+          "seriesId": {
+            "S": "frankfurter.aud-usd"
+          },
+          "providerKey": {
+            "S": "USD"
+          },
+          "name": {
+            "S": "AUD/USD"
+          },
+          "kind": {
+            "S": "fx"
+          },
+          "valueType": {
+            "S": "level"
+          },
+          "market": {
+            "S": "FX"
+          },
+          "currency": {
+            "S": "USD"
+          },
+          "visibility": {
+            "S": "public"
+          },
+          "firstDate": {
+            "S": "1999-01-04"
+          },
+          "lastDate": {
+            "S": "2026-10-30"
+          },
+          "status": {
+            "S": "active"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "SOURCE#yahoo"
+          },
+          "SK": {
+            "S": "SERIES#yahoo.gspc"
+          },
+          "seriesId": {
+            "S": "yahoo.gspc"
+          },
+          "providerKey": {
+            "S": "^GSPC"
+          },
+          "name": {
+            "S": "S&P 500"
+          },
+          "kind": {
+            "S": "index"
+          },
+          "valueType": {
+            "S": "level"
+          },
+          "market": {
+            "S": "US"
+          },
+          "currency": {
+            "S": "USD"
+          },
+          "visibility": {
+            "S": "private"
+          },
+          "note": {
+            "S": "Price index, excludes dividends"
+          },
+          "firstDate": {
+            "S": "1985-01-02"
+          },
+          "lastDate": {
+            "S": "2026-10-30"
+          },
+          "status": {
+            "S": "active"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "OWNER"
+          },
+          "SK": {
+            "S": "WATCH#australiansuper.high-growth"
+          },
+          "group": {
+            "S": "invested"
+          },
+          "addedAt": {
+            "S": "2026-11-13T08:10:02+11:00"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "OWNER"
+          },
+          "SK": {
+            "S": "WATCH#australiansuper.balanced"
+          },
+          "group": {
+            "S": "invested"
+          },
+          "addedAt": {
+            "S": "2026-11-13T08:10:09+11:00"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "OWNER"
+          },
+          "SK": {
+            "S": "WATCH#australiansuper.intl-shares"
+          },
+          "group": {
+            "S": "considering"
+          },
+          "addedAt": {
+            "S": "2026-11-13T08:11:30+11:00"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "OWNER"
+          },
+          "SK": {
+            "S": "PREFS"
+          },
+          "period": {
+            "S": "1Y"
+          },
+          "currencyView": {
+            "S": "AUD"
+          },
+          "comparisonSeries": {
+            "L": [
+              {
+                "S": "yahoo.aord"
+              },
+              {
+                "S": "yahoo.gspc"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "RUNS"
+          },
+          "SK": {
+            "S": "RUN#01JCDX4T8M2Q7V3N5K9R0B6HZE"
+          },
+          "trigger": {
+            "S": "schedule"
+          },
+          "status": {
+            "S": "partial"
+          },
+          "startedAt": {
+            "S": "2026-11-12T20:00:03Z"
+          },
+          "finishedAt": {
+            "S": "2026-11-12T20:01:12Z"
+          },
+          "perSource": {
+            "L": [
+              {
+                "M": {
+                  "sourceId": {
+                    "S": "australiansuper"
+                  },
+                  "from": {
+                    "S": "2026-11-05"
+                  },
+                  "to": {
+                    "S": "2026-11-12"
+                  },
+                  "daysAdded": {
+                    "N": "1"
+                  },
+                  "daysRevised": {
+                    "N": "1"
+                  },
+                  "newSeries": {
+                    "L": []
+                  },
+                  "error": {
+                    "NULL": true
+                  }
+                }
+              },
+              {
+                "M": {
+                  "sourceId": {
+                    "S": "yahoo"
+                  },
+                  "from": {
+                    "S": "2026-11-04"
+                  },
+                  "to": {
+                    "S": "2026-11-12"
+                  },
+                  "daysAdded": {
+                    "N": "1"
+                  },
+                  "daysRevised": {
+                    "N": "0"
+                  },
+                  "newSeries": {
+                    "L": []
+                  },
+                  "error": {
+                    "NULL": true
+                  }
+                }
+              },
+              {
+                "M": {
+                  "sourceId": {
+                    "S": "frankfurter"
+                  },
+                  "from": {
+                    "S": "2026-11-05"
+                  },
+                  "to": {
+                    "S": "2026-11-12"
+                  },
+                  "daysAdded": {
+                    "N": "0"
+                  },
+                  "daysRevised": {
+                    "N": "0"
+                  },
+                  "newSeries": {
+                    "L": []
+                  },
+                  "error": {
+                    "S": "HTTP 503 from source; existing data unchanged"
+                  }
+                }
+              }
+            ]
+          },
+          "expiresAt": {
+            "N": "1797458472"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "LOCK"
+          },
+          "SK": {
+            "S": "UPDATE"
+          },
+          "runId": {
+            "S": "01JCDX4T8M2Q7V3N5K9R0B6HZE"
+          },
+          "leaseUntil": {
+            "S": "2026-11-12T20:15:03Z"
+          },
+          "lastFinishedAt": {
+            "S": "2026-11-12T20:01:12Z"
+          }
+        }
+      }
+    }
+  ]
+}
