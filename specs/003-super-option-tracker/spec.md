@@ -167,7 +167,8 @@ values calculated from the stored data.
 ### Edge Cases
 
 - Weekends and public holidays: no rates are published. An update on those days must not be treated as an
-  error and must not keep re-requesting those dates.
+  error and must not keep re-requesting those dates. The provider's file lists those days with a 0 return for
+  every option; they are not real returns and are not stored or shown as 0% days.
 - The provider usually publishes a day's rate after that day ends; requesting today before publication
   must not store an empty or partial day.
 - The provider may revise recently published rates; the re-check window (FR-005) replaces revised values.

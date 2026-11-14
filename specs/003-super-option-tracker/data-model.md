@@ -148,6 +148,9 @@ UpdateRun.status:     running ──▶ succeeded | partial | failed
 - A fetched response is accepted **only as a whole**. Any parse error, unknown date format, non-numeric
   value, or a column set that shrinks by more than half rejects the whole response for that source (FR-007).
 - Dates must be on or before "today" in the market's time zone; future dates are rejected.
+- AustralianSuper CSV (research R7, verified): line endings may be `\r`, `\n` or `\r\n`; the first column must
+  be `Rate Date` with ISO dates; a row where **every** option is exactly `0` is a non-publishing day and is
+  skipped, not stored. A `0` in some columns but not all is a real value and is stored.
 - Option daily returns outside ±25% are rejected as implausible and reported, not stored.
 - Merging is idempotent: storing the same response twice gives byte-identical chunks, so the hashes stay the
   same and no new objects are written (FR-004).

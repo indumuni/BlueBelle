@@ -37,6 +37,7 @@ Other parts of the design:
 Expected cost: about **$0.10 a month**. Every decision is explained in [research.md](./research.md).
 
 **Owner inputs reflected**:
+- Sample AustralianSuper CSV supplied (2026-11-13); R7, data-model validation and fixture 07 now use it.
 - Minimal cost and serverless (R2, R16); Go for learning (R3, R10); caching of daily data (R5).
 - Public general data (R6, spec FR-016 amended); cheap DDoS protection (R9).
 - AI workflows, MCP, skills and RAG (R15).
@@ -92,6 +93,9 @@ owner's macOS.
 **Scale/Scope**: 1 owner plus anonymous viewers. About 40 series and 260 k points over 25 years. 1 scheduled
 run a day. Web: about 4 screens (Chart, Snapshot, Watchlist, Sources/Runs).
 
+**CSV format: verified** from the owner's sample `testdata/australian-super/Daily.csv` (research R7): CR-only
+line endings, `Rate Date` + 10 option columns, ISO dates, all-zero rows for non-business days (skipped).
+
 **Open item (does not block the plan)**: whether the AustralianSuper endpoint can be fetched from Lambda.
 Task T001 (spike) decides between the direct fetch and the owner-assisted import fallback (R7). Both are
 designed and contracted.
@@ -130,7 +134,7 @@ specs/003-super-option-tracker/
 ├── data-model.md
 ├── quickstart.md        # run + validation scenarios V1–V16
 ├── contracts/
-│   ├── superlens.openapi.yaml   # promoted to contracts/superlens.openapi.yaml in T002
+│   ├── superlens.openapi.yaml   # promoted to contracts/superlens.openapi.yaml in T008
 │   ├── mcp-tools.md
 │   └── fixtures.md
 ├── testdata/            # illustrative S3 objects and DynamoDB items

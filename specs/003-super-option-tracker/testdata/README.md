@@ -3,17 +3,24 @@
 Sample S3 objects and DynamoDB items matching [data-model.md](../data-model.md) and the `Manifest` / `Chunk`
 schemas in [contracts/superlens.openapi.yaml](../contracts/superlens.openapi.yaml).
 
+**Exception: `australian-super/Daily.csv` is real**: a provider download supplied by the owner
+(2026-11-01 to 2026-11-12, CR line endings, kept byte-for-byte; research R7). Don't re-save it in an editor
+that changes line endings. Everything else below is illustrative.
+
 **The values are invented.** Option names are placeholders; the real names and value format come from the
 provider CSV recorded in spike T001. The 12-character hashes in chunk file names are made up and are **not**
 the SHA-256 of the file contents. Tests that check hashing must compute them, not read them from here.
 
-When `apps/superlens-go` is scaffolded, this folder moves to `apps/superlens-go/testdata/examples/`, where it
+When `apps/superlens-go` is scaffolded, `Daily.csv` moves to `apps/superlens-go/testdata/australiansuper/Daily.csv`
+and the rest of this folder to `apps/superlens-go/testdata/examples/`, where it
 seeds the file-backed store (`SUPERLENS_STORE=file://…`) and the handler tests.
 
 ## Layout
 
 ```text
 testdata/
+├── australian-super/
+│   └── Daily.csv                         # REAL provider CSV (owner sample): adapter tests + fixture 07
 ├── s3/                                   # mirrors the data bucket's keys
 │   └── data/v1/                          # served by CloudFront /data/v1/* (v1: every series, no private prefix)
 │       ├── manifest.json                 # all series and their chunk URLs

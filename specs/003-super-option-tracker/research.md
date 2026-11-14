@@ -105,14 +105,30 @@ dependent code is written.
   2. **If Lambda can fetch it**: the update job fetches it directly (primary design).
   3. **If only the owner's machine can fetch it**: fall back to **owner-assisted import**. The owner (or the
      Claude skill on the owner's machine) downloads the CSV exactly as today, and `superlens import <file>`
-     uploads it through the authenticated `POST /api/v1/sources/{id}/imports` endpoint. The update job then
+     runs `superlens-mcp import australiansuper <file>`, which uploads it to `s3://…/imports/` with the
+     owner's AWS credentials (FR-016b, R18). The update job then
      processes it in the same way (same validation, delta merge and manifest rebuild). The 7:00 schedule
      still updates FX and indices. Rates arrive whenever the owner imports.
   4. Check the provider's website terms on automated access during the spike. If they forbid it, use (3).
 - **Rationale**: Automation must not depend on defeating a bot shield. The importer keeps every other part
   of the design unchanged, so the decision can wait until the spike.
-- **Assumed format** (to verify): one row per date, one column per investment option, values are daily %
-  returns when `cumulative=False`, dates `dd/mm/yyyy`, Sydney business days only.
+- **Verified format (2026-11-13, owner-supplied sample `testdata/australian-super/Daily.csv`**, downloaded
+  in the browser for 2026-11-01 to 2026-11-12 with `cumulative=False&truncateDecimalPlaces=True`):
+
+  | Property | Finding | Design consequence |
+  |---|---|---|
+  | Line endings | **CR only** (`\r`, classic Mac), no trailing newline | The parser normalises `\r\n`, `\r` and `\n` before reading CSV; Go's `encoding/csv` alone would see one line |
+  | Header | `Rate Date` then one column per option | `Rate Date` is required; the other columns are the options |
+  | Options (10) | High Growth, Balanced, Socially Aware, Indexed Diversified, Conservative Balanced, Stable, Australian Shares, International Shares, Diversified Fixed Interest, Cash | Series ids `australiansuper.<slug>` (e.g. `australiansuper.diversified-fixed-interest`); `providerKey` = column name. There is no separate provider id, so a renamed column becomes a new series (spec edge case) |
+  | Date format | ISO `YYYY-MM-DD` (**not** `dd/mm/yyyy` as assumed) | Parse ISO only; anything else rejects the file. The request URL still takes `dd/mm/yyyy` |
+  | Values | Daily % return, up to 4 decimals (e.g. `-0.064`, `2.3913`) | `valueType: return_pct` as planned |
+  | Non-business days | **Present as rows where every option is exactly `0`** (Sun 1 Nov, Sat 7 and Sun 8 Nov) | Rows with all values `0` are dropped as "not published", not stored as 0% days. Otherwise they would distort best/worst day, the daily view and business-day learning. A real trading day with all ten options exactly 0, Cash included, is not realistic. Weekend accrual shows up in Monday's value (Cash 0.0396 on Mon vs ~0.0113 on other days) |
+  | Latest day | 2026-11-12 in a file downloaded on 13 Nov at 18:49 Sydney | Confirms "previous business day" is available by the evening; the 07:00 timing is still to check |
+
+- **Still to verify in the spike**: fetching from a plainly identified client and from Lambda (the 403
+  finding), the earliest available date, the longest range per request, the time of day a rate appears,
+  and the website terms. The sample has no public holiday; check one (e.g. 25–26 Dec) to confirm holidays
+  also appear as all-zero rows.
 
 ## R8. Index and exchange-rate sources — **VERIFY IN SPIKE**
 
